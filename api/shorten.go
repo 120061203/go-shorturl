@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"go-shorturl/internal/db"
-	"go-shorturl/internal/handlers"
+	"go-shorturl/pkg/db"
+	"go-shorturl/pkg/handlers"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"

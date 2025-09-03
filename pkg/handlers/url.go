@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"go-shorturl/internal/db"
-	"go-shorturl/internal/models"
+	"go-shorturl/pkg/db"
+	"go-shorturl/pkg/models"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
