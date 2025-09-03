@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/fiber/v2/middleware/adaptor"
 )
 
 func init() {
@@ -46,5 +47,5 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	app.Get("/:short_code", handlers.RedirectURL)
 
 	// 處理請求
-	app.Server().Handler.ServeHTTP(w, r)
+	adaptor.FiberHandler(app).ServeHTTP(w, r)
 }
