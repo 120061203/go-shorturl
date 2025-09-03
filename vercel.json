@@ -2,15 +2,15 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/shorten.go",
+      "src": "api/shorten/shorten.go",
       "use": "@vercel/go@latest"
     },
     {
-      "src": "api/redirect.go",
+      "src": "api/redirect/redirect.go",
       "use": "@vercel/go@latest"
     },
     {
-      "src": "api/stats.go",
+      "src": "api/stats/stats.go",
       "use": "@vercel/go@latest"
     },
     {
@@ -24,19 +24,19 @@
   "routes": [
     {
       "src": "/api/shorten",
-      "dest": "/api/shorten.go"
+      "dest": "/api/shorten/shorten.go"
     },
     {
       "src": "/api/stats/(.*)",
-      "dest": "/api/stats.go"
+      "dest": "/api/stats/stats.go"
     },
     {
       "src": "/shorturl/(.*)",
-      "dest": "/api/redirect.go"
+      "dest": "/api/redirect/redirect.go"
     },
     {
       "src": "/([a-zA-Z0-9-]+)",
-      "dest": "/api/redirect.go"
+      "dest": "/api/redirect/redirect.go"
     },
     {
       "src": "/(.*)",
