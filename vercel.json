@@ -3,15 +3,15 @@
   "builds": [
     {
       "src": "api/shorten.go",
-      "use": "vercel-go@1.0.0"
+      "use": "@vercel/go@1.0.0"
     },
     {
       "src": "api/redirect.go",
-      "use": "vercel-go@1.0.0"
+      "use": "@vercel/go@1.0.0"
     },
     {
       "src": "api/stats.go",
-      "use": "vercel-go@1.0.0"
+      "use": "@vercel/go@1.0.0"
     },
     {
       "src": "frontend/package.json",
