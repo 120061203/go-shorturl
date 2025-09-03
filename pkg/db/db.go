@@ -14,9 +14,11 @@ var DB *pgxpool.Pool
 
 // InitDB 初始化資料庫連線
 func InitDB() error {
-	// 載入環境變數
-	if err := godotenv.Load("env.template"); err != nil {
-		log.Println("Warning: Could not load env.template file")
+	// 只在本地開發環境載入 .env 文件
+	if os.Getenv("VERCEL") == "" {
+		if err := godotenv.Load(); err != nil {
+			log.Println("Warning: Could not load .env file")
+		}
 	}
 
 	databaseURL := os.Getenv("DATABASE_URL")
