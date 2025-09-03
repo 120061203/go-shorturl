@@ -14,6 +14,9 @@ var DB *pgxpool.Pool
 
 // InitDB 初始化資料庫連線
 func InitDB() error {
+	// 調試信息
+	log.Printf("Environment: VERCEL=%s", os.Getenv("VERCEL"))
+	
 	// 只在本地開發環境載入 .env 文件
 	if os.Getenv("VERCEL") == "" {
 		if err := godotenv.Load(); err != nil {
@@ -22,6 +25,7 @@ func InitDB() error {
 	}
 
 	databaseURL := os.Getenv("DATABASE_URL")
+	log.Printf("DATABASE_URL length: %d", len(databaseURL))
 	if databaseURL == "" {
 		return fmt.Errorf("DATABASE_URL environment variable is not set")
 	}
