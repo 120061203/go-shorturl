@@ -1,142 +1,179 @@
-# Go Short URL Service
+# 🚀 xsong 短網址服務
 
-一個使用 Go + Fiber + PostgreSQL 建立的短網址服務，支援 Supabase 和 Vercel 部署。
+一個簡潔、快速、個人化的短網址工具，專為個人使用而設計。
 
-## 功能特色
+## ✨ 功能特色
 
-- 🚀 建立短網址 (支援自訂短碼)
-- 📊 點擊統計分析
-- 🔄 自動重定向
-- 📱 響應式 API
-- 🐳 Docker 支援
-- ☁️ Vercel 部署就緒
-- 🗄️ Supabase 整合
+- **簡潔設計**：極簡主義的用戶界面
+- **快速縮短**：一鍵生成短網址
+- **QR Code**：自動生成並可下載 QR Code
+- **自訂短碼**：支援自訂短網址代碼
+- **統計分析**：查看點擊統計和裝置分析
+- **個人風格**：專屬於 xsong 的設計風格
 
-## 快速開始
+## 🛠️ 技術架構
 
-### 1. 本地開發環境
+- **後端**：Go + Fiber + PostgreSQL
+- **前端**：Vue 3 + TypeScript + Tailwind CSS
+- **資料庫**：PostgreSQL (Docker)
+- **部署**：Docker + Vercel (可選)
 
-#### 啟動 PostgreSQL
+## 🚀 快速啟動
+
+### 方法一：一鍵啟動（推薦）
+
 ```bash
+# 啟動所有服務
+./start.sh
+
+# 停止所有服務
+./stop.sh
+
+# 測試系統狀態
+./test-system.sh
+```
+
+### 方法二：手動啟動
+
+```bash
+# 1. 啟動資料庫
 docker-compose up -d
+
+# 2. 啟動後端服務
+docker run --rm --network go-shorturl_default -p 8080:8080 \
+  -v $(pwd):/app -w /app \
+  -e DATABASE_URL=postgres://devuser:devpass@shorturl-postgres:5432/shortener \
+  golang:1.21 go run cmd/server/main.go
+
+# 3. 啟動前端服務（新終端）
+cd frontend && npm run dev
 ```
 
-#### 設定環境變數
-```bash
-cp env.template .env.local
-# 編輯 .env.local 檔案
-```
+## 📱 訪問地址
 
-#### 安裝依賴並執行
-```bash
-go mod tidy
-go run cmd/server/main.go
-```
+- **前端界面**：http://localhost:5175
+- **後端 API**：http://localhost:8080
+- **健康檢查**：http://localhost:8080/health
 
-### 2. API 端點
+## 🔧 API 端點
 
-#### 建立短網址
+### 創建短網址
 ```bash
 POST /api/shorten
 Content-Type: application/json
 
 {
-  "url": "https://www.google.com",
-  "custom_code": "google" // 可選
+  "url": "https://www.example.com",
+  "custom_code": "my-custom-code"  // 可選
 }
 ```
 
-#### 重定向
+### 查詢統計
 ```bash
-GET /:short_code
+GET /api/stats/{short_code}
 ```
 
-#### 取得統計
+### 重定向
 ```bash
-GET /api/stats/:short_code
+GET /{short_code}
 ```
 
-### 3. Supabase 部署
+## 🎨 設計特色
 
-#### 初始化 Supabase 專案
+### 個人風格
+- **深色主題**：現代化的深色設計
+- **漸變色彩**：紫色到粉色的漸變效果
+- **毛玻璃效果**：backdrop-blur 的現代設計
+- **簡潔佈局**：去除不必要的商業元素
+
+### 功能簡化
+- 專注於核心功能：縮短網址和 QR Code
+- 移除商業元素：公司介紹、服務條款等
+- 個人化體驗：專屬於 xsong 的設計
+
+## 🐳 Docker 管理
+
 ```bash
-supabase init
-supabase start
+# 查看容器狀態
+docker ps
+
+# 查看資料庫日誌
+docker logs shorturl-postgres
+
+# 重啟資料庫
+docker-compose restart
+
+# 清理所有容器
+docker-compose down -v
 ```
 
-#### 推送資料庫 Schema
+## 🔍 故障排除
+
+### 常見問題
+
+1. **資料庫連接失敗**
+   ```bash
+   # 檢查容器狀態
+   docker ps
+   
+   # 重新啟動資料庫
+   docker-compose down && docker-compose up -d
+   ```
+
+2. **前端無法訪問**
+   ```bash
+   # 檢查端口
+   lsof -i :5175
+   
+   # 重新啟動前端
+   cd frontend && npm run dev
+   ```
+
+3. **後端 API 錯誤**
+   ```bash
+   # 檢查後端日誌
+   docker logs $(docker ps -q --filter "ancestor=golang:1.21")
+   
+   # 重新啟動後端
+   ./stop.sh && ./start.sh
+   ```
+
+## 📝 開發指南
+
+### 專案結構
+```
+go-shorturl/
+├── cmd/server/          # 後端入口
+├── internal/            # 內部包
+│   ├── db/             # 資料庫連接
+│   ├── handlers/       # API 處理器
+│   └── models/         # 資料模型
+├── frontend/           # Vue 前端
+├── db/                 # 資料庫腳本
+├── scripts/            # 工具腳本
+└── docker-compose.yml  # Docker 配置
+```
+
+### 開發命令
 ```bash
+# 後端開發
+go run cmd/server/main.go
+
+# 前端開發
+cd frontend && npm run dev
+
+# 資料庫遷移
 supabase db push
 ```
 
-#### 設定生產環境變數
-```bash
-cp env.production.template .env.production
-# 編輯 .env.production 並填入 Supabase 連線字串
-```
-
-### 4. Vercel 部署
-
-#### 安裝 Vercel CLI
-```bash
-npm i -g vercel
-```
-
-#### 部署
-```bash
-vercel --prod
-```
-
-#### 設定環境變數
-在 Vercel Dashboard 中設定 `DATABASE_URL` 環境變數。
-
-## 專案結構
-
-```
-├── cmd/server/          # 主程式
-├── internal/
-│   ├── db/             # 資料庫連線
-│   ├── handlers/       # API 處理器
-│   └── models/         # 資料模型
-├── api/                # Vercel Serverless Functions
-├── db/                 # 資料庫 Schema
-├── supabase/           # Supabase 配置
-├── docker-compose.yml  # Docker 配置
-├── vercel.json         # Vercel 配置
-└── go.mod             # Go 模組
-```
-
-## 資料庫 Schema
-
-### urls 表
-- `id`: UUID 主鍵
-- `user_id`: 使用者 ID (可選)
-- `original_url`: 原始網址
-- `short_code`: 短碼 (唯一)
-- `created_at`: 建立時間
-
-### clicks 表
-- `id`: UUID 主鍵
-- `url_id`: 關聯的 URL ID
-- `clicked_at`: 點擊時間
-- `ip_address`: IP 位址
-- `user_agent`: 使用者代理
-- `referrer`: 來源網址
-
-## 環境變數
-
-- `DATABASE_URL`: PostgreSQL 連線字串
-- `PORT`: 伺服器埠號 (預設: 8080)
-
-## 開發工具
-
-- [Go](https://golang.org/) - 程式語言
-- [Fiber](https://gofiber.io/) - Web 框架
-- [PostgreSQL](https://www.postgresql.org/) - 資料庫
-- [Supabase](https://supabase.com/) - 後端即服務
-- [Vercel](https://vercel.com/) - 部署平台
-- [Docker](https://www.docker.com/) - 容器化
-
-## 授權
+## 📄 授權
 
 MIT License
+
+## 🤝 關於
+
+這是一個專屬於 xsong 的個人短網址服務，簡潔、快速、實用。
+
+---
+
+**xsong** - 個人短網址服務 🚀

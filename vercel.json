@@ -2,18 +2,45 @@
   "version": 2,
   "builds": [
     {
-      "src": "cmd/server/main.go",
+      "src": "api/shorten.go",
       "use": "vercel-go@1.0.0"
+    },
+    {
+      "src": "api/redirect.go",
+      "use": "vercel-go@1.0.0"
+    },
+    {
+      "src": "api/stats.go",
+      "use": "vercel-go@1.0.0"
+    },
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/cmd/server/main.go"
+      "src": "/api/shorten",
+      "dest": "/api/shorten.go"
+    },
+    {
+      "src": "/api/stats/(.*)",
+      "dest": "/api/stats.go"
+    },
+    {
+      "src": "/shorturl/(.*)",
+      "dest": "/api/redirect.go"
+    },
+    {
+      "src": "/([a-zA-Z0-9-]+)",
+      "dest": "/api/redirect.go"
     },
     {
       "src": "/(.*)",
-      "dest": "/cmd/server/main.go"
+      "dest": "/frontend/$1"
     }
   ],
   "env": {

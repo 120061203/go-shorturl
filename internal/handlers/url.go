@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"os"
+	"strings"
 	"time"
 
 	"go-shorturl/internal/db"
@@ -17,19 +19,58 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// isValidURL 驗證 URL 格式
+func isValidURL(rawURL string) bool {
+	// 如果沒有協議，自動添加 https://
+	if !strings.HasPrefix(rawURL, "http://") && !strings.HasPrefix(rawURL, "https://") {
+		rawURL = "https://" + rawURL
+	}
+	
+	parsedURL, err := url.Parse(rawURL)
+	return err == nil && parsedURL.Scheme != "" && parsedURL.Host != ""
+}
+
+// normalizeURL 標準化 URL
+func normalizeURL(rawURL string) string {
+	if !strings.HasPrefix(rawURL, "http://") && !strings.HasPrefix(rawURL, "https://") {
+		return "https://" + rawURL
+	}
+	return rawURL
+}
+
 // generateShortCode 產生隨機短碼
-func generateShortCode() (string, error) {
-	bytes := make([]byte, 6)
+func generateShortCode(originalURL string) (string, error) {
+	// 計算原始網址長度（不包含協議）
+	urlWithoutProtocol := originalURL
+	if strings.HasPrefix(urlWithoutProtocol, "https://") {
+		urlWithoutProtocol = strings.TrimPrefix(urlWithoutProtocol, "https://")
+	} else if strings.HasPrefix(urlWithoutProtocol, "http://") {
+		urlWithoutProtocol = strings.TrimPrefix(urlWithoutProtocol, "http://")
+	}
+	
+	originalLength := len(urlWithoutProtocol)
+	
+	// 短碼長度應該是原始長度的一半，但至少6個字符，最多12個字符
+	shortCodeLength := originalLength / 2
+	if shortCodeLength < 6 {
+		shortCodeLength = 6
+	} else if shortCodeLength > 12 {
+		shortCodeLength = 12
+	}
+	
+	// 確保短碼比原始網址短
+	if shortCodeLength >= originalLength {
+		shortCodeLength = originalLength - 1
+		if shortCodeLength < 6 {
+			shortCodeLength = 6
+		}
+	}
+	
+	bytes := make([]byte, shortCodeLength)
 	if _, err := rand.Read(bytes); err != nil {
 		return "", err
 	}
-	return hex.EncodeToString(bytes), nil
-}
-
-// isValidURL 驗證 URL 格式
-func isValidURL(rawURL string) bool {
-	parsedURL, err := url.Parse(rawURL)
-	return err == nil && parsedURL.Scheme != "" && parsedURL.Host != ""
+	return hex.EncodeToString(bytes)[:shortCodeLength], nil
 }
 
 // ShortenURL 建立短網址
@@ -41,8 +82,11 @@ func ShortenURL(c *fiber.Ctx) error {
 		})
 	}
 
+	// 標準化 URL
+	normalizedURL := normalizeURL(req.URL)
+	
 	// 驗證 URL
-	if !isValidURL(req.URL) {
+	if !isValidURL(normalizedURL) {
 		return c.Status(400).JSON(fiber.Map{
 			"error": "Invalid URL format",
 		})
@@ -71,7 +115,7 @@ func ShortenURL(c *fiber.Ctx) error {
 	} else {
 		// 產生隨機短碼
 		for {
-			shortCode, err = generateShortCode()
+			shortCode, err = generateShortCode(normalizedURL)
 			if err != nil {
 				return c.Status(500).JSON(fiber.Map{
 					"error": "Failed to generate short code",
@@ -103,7 +147,7 @@ func ShortenURL(c *fiber.Ctx) error {
 	id := uuid.New()
 	createdAt := time.Now()
 	
-	err = db.GetDB().QueryRow(context.Background(), query, id, req.URL, shortCode, createdAt).Scan(&id, &createdAt)
+	err = db.GetDB().QueryRow(context.Background(), query, id, normalizedURL, shortCode, createdAt).Scan(&id, &createdAt)
 	if err != nil {
 		log.Printf("Error inserting URL: %v", err)
 		return c.Status(500).JSON(fiber.Map{
@@ -112,15 +156,33 @@ func ShortenURL(c *fiber.Ctx) error {
 	}
 
 	// 構建短網址
-	baseURL := c.BaseURL()
-	if baseURL == "" {
-		baseURL = "http://localhost:8080"
+	baseURL := "http://localhost:8080"
+	
+	// 嘗試從環境變數獲取域名
+	if envBaseURL := os.Getenv("BASE_URL"); envBaseURL != "" {
+		baseURL = envBaseURL
+	} else {
+		// 嘗試從請求頭獲取
+		if host := c.Get("Host"); host != "" {
+			protocol := "http"
+			if c.Get("X-Forwarded-Proto") == "https" {
+				protocol = "https"
+			}
+			baseURL = fmt.Sprintf("%s://%s", protocol, host)
+		}
 	}
-	shortURL := fmt.Sprintf("%s/%s", baseURL, shortCode)
+	
+	// 在生產環境中，使用簡潔的格式
+	var shortURL string
+	if os.Getenv("VERCEL") != "" {
+		shortURL = fmt.Sprintf("%s/%s", baseURL, shortCode)
+	} else {
+		shortURL = fmt.Sprintf("%s/shorturl/%s", baseURL, shortCode)
+	}
 
 	response := models.ShortenResponse{
 		ShortURL:    shortURL,
-		OriginalURL: req.URL,
+		OriginalURL: normalizedURL,
 		ShortCode:   shortCode,
 		CreatedAt:   createdAt,
 	}
