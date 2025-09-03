@@ -47,5 +47,5 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	app.Get("/:short_code", handlers.RedirectURL)
 
 	// 處理請求
-	adaptor.FiberHandler(app).ServeHTTP(w, r)
+	adaptor.FiberApp(app).ServeHTTP(w, r)
 }

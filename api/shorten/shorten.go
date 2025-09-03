@@ -48,5 +48,5 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	api.Post("/shorten", handlers.ShortenURL)
 
 	// 處理請求
-	adaptor.FiberHandler(app).ServeHTTP(w, r)
+	adaptor.FiberApp(app).ServeHTTP(w, r)
 }
