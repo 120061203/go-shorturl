@@ -59,7 +59,7 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label class="block text-sm font-medium text-gray-300 mb-2">短網址</label>
-              <p class="text-white font-mono text-lg">https://xsong.us/url/{{ stats.short_code }}</p>
+              <p class="text-white font-mono text-lg">{{ getShortUrl(stats.short_code) }}</p>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-300 mb-2">原始網址</label>
@@ -205,5 +205,10 @@ const getDeviceName = (userAgent: string): string => {
   if (userAgent.includes('Edge')) return 'Edge'
   if (userAgent.includes('curl')) return 'API 調用'
   return '其他'
+}
+
+// 生成短網址
+const getShortUrl = (shortCode: string): string => {
+  return `https://xsong.us/url/${shortCode}`
 }
 </script>
