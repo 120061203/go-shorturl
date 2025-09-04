@@ -102,8 +102,9 @@ func ShortenURL(c *fiber.Ctx) error {
 		query := "SELECT EXISTS(SELECT 1 FROM urls WHERE short_code = $1)"
 		err = db.GetDB().QueryRow(context.Background(), query, req.CustomCode).Scan(&exists)
 		if err != nil {
+			log.Printf("Database error checking custom code: %v", err)
 			return c.Status(500).JSON(fiber.Map{
-				"error": "Database error",
+				"error": fmt.Sprintf("Database error: %v", err),
 			})
 		}
 		if exists {
@@ -127,8 +128,9 @@ func ShortenURL(c *fiber.Ctx) error {
 			query := "SELECT EXISTS(SELECT 1 FROM urls WHERE short_code = $1)"
 			err = db.GetDB().QueryRow(context.Background(), query, shortCode).Scan(&exists)
 			if err != nil {
+				log.Printf("Database error checking short code: %v", err)
 				return c.Status(500).JSON(fiber.Map{
-					"error": "Database error",
+					"error": fmt.Sprintf("Database error: %v", err),
 				})
 			}
 			if !exists {
@@ -151,7 +153,7 @@ func ShortenURL(c *fiber.Ctx) error {
 	if err != nil {
 		log.Printf("Error inserting URL: %v", err)
 		return c.Status(500).JSON(fiber.Map{
-			"error": "Failed to create short URL",
+			"error": fmt.Sprintf("Failed to create short URL: %v", err),
 		})
 	}
 
