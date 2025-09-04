@@ -9,6 +9,7 @@
 - **點擊統計**：詳細的點擊統計和分析
 - **現代化 UI**：基於 Vue 3 + Tailwind CSS 的美觀介面
 - **雲端部署**：支援 Vercel 一鍵部署
+- **子路徑支援**：可內嵌到主域名下 (如 xsong.us/shorturl/xxxxxxx)
 
 ## 🏗️ 技術架構
 
@@ -79,7 +80,7 @@ npm run dev
 
 2. **設置環境變數**
    - `DATABASE_URL`: Supabase 連接字串
-   - `BASE_URL`: 你的 Vercel 域名
+   - `BASE_URL`: 你的主域名 (如 https://xsong.us)
 
 3. **自動部署**
    - Vercel 會自動檢測並部署

@@ -174,13 +174,8 @@ func ShortenURL(c *fiber.Ctx) error {
 		}
 	}
 	
-	// 在生產環境中，使用簡潔的格式
-	var shortURL string
-	if os.Getenv("VERCEL") != "" {
-		shortURL = fmt.Sprintf("%s/%s", baseURL, shortCode)
-	} else {
-		shortURL = fmt.Sprintf("%s/shorturl/%s", baseURL, shortCode)
-	}
+	// 統一使用 /shorturl/ 格式
+	shortURL = fmt.Sprintf("%s/shorturl/%s", baseURL, shortCode)
 
 	response := models.ShortenResponse{
 		ShortURL:    shortURL,
