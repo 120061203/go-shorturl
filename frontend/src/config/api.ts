@@ -2,7 +2,7 @@ import axios from 'axios'
 
 // 設定 axios 基礎配置
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://xsong.us' : 'http://localhost:8080'),
+  baseURL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://go-shorturl.vercel.app' : 'http://localhost:8080'),
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
