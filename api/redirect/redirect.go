@@ -44,8 +44,8 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		AllowHeaders: "Origin,Content-Type,Accept,Authorization",
 	}))
 
-	// 重定向路由 - 處理 /short/:short_code 格式
-	app.Get("/short/:short_code", handlers.RedirectURL)
+	// 重定向路由 - 處理 /url/:short_code 格式
+	app.Get("/url/:short_code", handlers.RedirectURL)
 
 	// 處理請求
 	adaptor.FiberApp(app).ServeHTTP(w, r)

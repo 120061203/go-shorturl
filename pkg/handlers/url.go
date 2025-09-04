@@ -174,8 +174,8 @@ func ShortenURL(c *fiber.Ctx) error {
 		}
 	}
 	
-	// 統一使用 /short/ 格式
-	shortURL := fmt.Sprintf("%s/short/%s", baseURL, shortCode)
+	// 統一使用 /url/ 格式
+	shortURL := fmt.Sprintf("%s/url/%s", baseURL, shortCode)
 
 	response := models.ShortenResponse{
 		ShortURL:    shortURL,

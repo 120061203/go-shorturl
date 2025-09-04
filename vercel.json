@@ -31,7 +31,7 @@
       "dest": "/api/stats/stats.go"
     },
     {
-      "src": "/short/([a-zA-Z0-9-]+)",
+      "src": "/url/([a-zA-Z0-9-]+)",
       "dest": "/api/redirect/redirect.go"
     },
     {
