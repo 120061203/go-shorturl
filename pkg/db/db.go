@@ -19,11 +19,12 @@ func InitDB() error {
 	log.Printf("Environment: VERCEL=%s", os.Getenv("VERCEL"))
 	
 	// 檢查是否在 Vercel 環境中（多種檢測方法）
+	vercelRegion := os.Getenv("VERCEL_REGION")
 	isVercel := os.Getenv("VERCEL") != "" || 
 		os.Getenv("VERCEL_ENV") != "" || 
 		os.Getenv("VERCEL_URL") != "" ||
-		strings.Contains(os.Getenv("VERCEL_REGION") || "", "iad") ||
-		strings.Contains(os.Getenv("VERCEL_REGION") || "", "hkg")
+		strings.Contains(vercelRegion, "iad") ||
+		strings.Contains(vercelRegion, "hkg")
 	
 	log.Printf("Is Vercel environment: %v", isVercel)
 	
