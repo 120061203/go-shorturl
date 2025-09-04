@@ -59,7 +59,7 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label class="block text-sm font-medium text-gray-300 mb-2">短網址</label>
-              <p class="text-white font-mono text-lg">http://localhost:8080/{{ stats.short_code }}</p>
+              <p class="text-white font-mono text-lg">https://xsong.us/url/{{ stats.short_code }}</p>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-300 mb-2">原始網址</label>
