@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
@@ -17,8 +18,13 @@ func InitDB() error {
 	// 調試信息
 	log.Printf("Environment: VERCEL=%s", os.Getenv("VERCEL"))
 	
-	// 檢查是否在 Vercel 環境中
-	isVercel := os.Getenv("VERCEL") != "" || os.Getenv("VERCEL_ENV") != ""
+	// 檢查是否在 Vercel 環境中（多種檢測方法）
+	isVercel := os.Getenv("VERCEL") != "" || 
+		os.Getenv("VERCEL_ENV") != "" || 
+		os.Getenv("VERCEL_URL") != "" ||
+		strings.Contains(os.Getenv("VERCEL_REGION") || "", "iad") ||
+		strings.Contains(os.Getenv("VERCEL_REGION") || "", "hkg")
+	
 	log.Printf("Is Vercel environment: %v", isVercel)
 	
 	// 只在本地開發環境載入 .env 文件
