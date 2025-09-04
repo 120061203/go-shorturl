@@ -13,14 +13,15 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 )
 
-func init() {
-	// 初始化資料庫
-	if err := db.InitDB(); err != nil {
-		panic(err)
-	}
-}
-
 func Handler(w http.ResponseWriter, r *http.Request) {
+	// 初始化資料庫（如果還沒初始化）
+	if db.GetDB() == nil {
+		if err := db.InitDB(); err != nil {
+			http.Error(w, "Database initialization failed", http.StatusInternalServerError)
+			return
+		}
+	}
+
 	// 建立 Fiber 應用程式
 	app := fiber.New(fiber.Config{
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
