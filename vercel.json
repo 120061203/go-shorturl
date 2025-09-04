@@ -21,28 +21,22 @@
       }
     }
   ],
-  "routes": [
-    {
-      "src": "/api/shorten",
-      "dest": "/api/shorten/shorten.go"
-    },
-    {
-      "src": "/api/stats/(.*)",
-      "dest": "/api/stats/stats.go"
-    },
-    {
-      "src": "/url/([a-zA-Z0-9-]+)",
-      "dest": "/api/redirect/redirect.go"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/frontend/$1"
-    }
-  ],
   "rewrites": [
     {
+      "source": "/api/shorten",
+      "destination": "/api/shorten/shorten.go"
+    },
+    {
+      "source": "/api/stats/:shortCode",
+      "destination": "/api/stats/stats.go"
+    },
+    {
       "source": "/url/:shortCode",
-      "destination": "https://go-shorturl.vercel.app/url/:shortCode"
+      "destination": "/api/redirect/redirect.go"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/frontend/$1"
     }
   ],
   "env": {
