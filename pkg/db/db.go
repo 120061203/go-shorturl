@@ -17,8 +17,12 @@ func InitDB() error {
 	// 調試信息
 	log.Printf("Environment: VERCEL=%s", os.Getenv("VERCEL"))
 	
+	// 檢查是否在 Vercel 環境中
+	isVercel := os.Getenv("VERCEL") != "" || os.Getenv("VERCEL_ENV") != ""
+	log.Printf("Is Vercel environment: %v", isVercel)
+	
 	// 只在本地開發環境載入 .env 文件
-	if os.Getenv("VERCEL") == "" {
+	if !isVercel {
 		if err := godotenv.Load(); err != nil {
 			log.Println("Warning: Could not load .env file")
 		}
