@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -245,25 +246,25 @@ func getRealUserAgent(c *fiber.Ctx) string {
 // parseDeviceType 從 User-Agent 解析設備類型
 func parseDeviceType(userAgent string) string {
 	ua := strings.ToLower(userAgent)
-	
+
 	// 檢查是否為移動設備
-	if strings.Contains(ua, "mobile") || 
-		strings.Contains(ua, "android") || 
+	if strings.Contains(ua, "mobile") ||
+		strings.Contains(ua, "android") ||
 		strings.Contains(ua, "iphone") ||
 		strings.Contains(ua, "ipod") ||
 		strings.Contains(ua, "blackberry") ||
 		strings.Contains(ua, "windows phone") {
 		return "手機"
 	}
-	
+
 	// 檢查是否為平板
-	if strings.Contains(ua, "tablet") || 
+	if strings.Contains(ua, "tablet") ||
 		strings.Contains(ua, "ipad") ||
 		strings.Contains(ua, "playbook") ||
 		strings.Contains(ua, "kindle") {
 		return "平板"
 	}
-	
+
 	// 默認為電腦
 	return "電腦"
 }
@@ -280,7 +281,7 @@ type IPLocation struct {
 // getIPLocation 查詢IP地理位置（使用ip-api.com免費API）
 func getIPLocation(ipAddress string) string {
 	// 跳過本地IP和私有IP
-	if ipAddress == "" || 
+	if ipAddress == "" ||
 		strings.HasPrefix(ipAddress, "127.") ||
 		strings.HasPrefix(ipAddress, "192.168.") ||
 		strings.HasPrefix(ipAddress, "10.") ||
@@ -289,37 +290,37 @@ func getIPLocation(ipAddress string) string {
 		ipAddress == "localhost" {
 		return "本地"
 	}
-	
+
 	// 使用ip-api.com免費API（無需API key，但有速率限制）
 	apiURL := fmt.Sprintf("http://ip-api.com/json/%s?fields=status,country,regionName,city,isp,countryCode&lang=zh-CN", ipAddress)
-	
+
 	client := &http.Client{
 		Timeout: 2 * time.Second, // 設置超時，避免阻塞
 	}
-	
+
 	resp, err := client.Get(apiURL)
 	if err != nil {
 		log.Printf("Error fetching IP location: %v", err)
 		return "未知"
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return "未知"
 	}
-	
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Printf("Error reading IP location response: %v", err)
 		return "未知"
 	}
-	
+
 	var location IPLocation
 	if err := json.Unmarshal(body, &location); err != nil {
 		log.Printf("Error parsing IP location: %v", err)
 		return "未知"
 	}
-	
+
 	// 構建地理位置字符串
 	parts := []string{}
 	if location.Country != "" {
@@ -331,11 +332,11 @@ func getIPLocation(ipAddress string) string {
 	if location.City != "" {
 		parts = append(parts, location.City)
 	}
-	
+
 	if len(parts) > 0 {
 		return strings.Join(parts, ", ")
 	}
-	
+
 	return "未知"
 }
 
@@ -404,23 +405,146 @@ func isSocialMediaBot(userAgent string) bool {
 	return false
 }
 
+// OGMetadata 從目標URL抓取的Open Graph信息
+type OGMetadata struct {
+	Title       string
+	Description string
+	Image       string
+	Type        string
+	SiteName    string
+}
+
+// fetchOGMetadata 從目標URL抓取Open Graph meta標籤
+func fetchOGMetadata(targetURL string) OGMetadata {
+	metadata := OGMetadata{
+		Title:       "短網址服務",
+		Description: "點擊查看完整內容",
+		Image:       "",
+		Type:        "website",
+		SiteName:    "",
+	}
+
+	client := &http.Client{
+		Timeout: 3 * time.Second, // 設置超時
+	}
+
+	resp, err := client.Get(targetURL)
+	if err != nil {
+		log.Printf("Error fetching OG metadata: %v", err)
+		return metadata
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Error fetching OG metadata: status %d", resp.StatusCode)
+		return metadata
+	}
+
+	// 讀取HTML內容（限制大小，避免讀取過大文件）
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1024*1024)) // 最多1MB
+	if err != nil {
+		log.Printf("Error reading OG metadata response: %v", err)
+		return metadata
+	}
+
+	htmlContent := string(body)
+
+	// 使用簡單的正則表達式提取OG meta標籤
+	// 提取 og:title
+	if matches := extractMetaContent(htmlContent, `property=["']og:title["']\s+content=["']([^"']+)["']`); len(matches) > 0 {
+		metadata.Title = matches[0]
+	} else if matches := extractMetaContent(htmlContent, `<title>([^<]+)</title>`); len(matches) > 0 {
+		metadata.Title = matches[0]
+	}
+
+	// 提取 og:description
+	if matches := extractMetaContent(htmlContent, `property=["']og:description["']\s+content=["']([^"']+)["']`); len(matches) > 0 {
+		metadata.Description = matches[0]
+	} else if matches := extractMetaContent(htmlContent, `name=["']description["']\s+content=["']([^"']+)["']`); len(matches) > 0 {
+		metadata.Description = matches[0]
+	}
+
+	// 提取 og:image
+	if matches := extractMetaContent(htmlContent, `property=["']og:image["']\s+content=["']([^"']+)["']`); len(matches) > 0 {
+		imageURL := matches[0]
+		// 如果是相對路徑，轉換為絕對路徑
+		if parsedURL, err := url.Parse(targetURL); err == nil {
+			if absImageURL, err := parsedURL.Parse(imageURL); err == nil {
+				metadata.Image = absImageURL.String()
+			} else {
+				// 如果解析失敗，嘗試拼接
+				if parsedURL.Scheme != "" && parsedURL.Host != "" {
+					baseURL := fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host)
+					if strings.HasPrefix(imageURL, "/") {
+						metadata.Image = baseURL + imageURL
+					} else {
+						metadata.Image = baseURL + "/" + imageURL
+					}
+				} else {
+					metadata.Image = imageURL
+				}
+			}
+		} else {
+			metadata.Image = imageURL
+		}
+	}
+
+	// 提取 og:type
+	if matches := extractMetaContent(htmlContent, `property=["']og:type["']\s+content=["']([^"']+)["']`); len(matches) > 0 {
+		metadata.Type = matches[0]
+	}
+
+	// 提取 og:site_name
+	if matches := extractMetaContent(htmlContent, `property=["']og:site_name["']\s+content=["']([^"']+)["']`); len(matches) > 0 {
+		metadata.SiteName = matches[0]
+	}
+
+	return metadata
+}
+
+// extractMetaContent 使用正則表達式提取meta標籤內容
+func extractMetaContent(html, pattern string) []string {
+	re := regexp.MustCompile(`(?i)` + pattern)
+	matches := re.FindStringSubmatch(html)
+	if len(matches) > 1 {
+		return []string{matches[1]}
+	}
+	return []string{}
+}
+
 // generateMetaHTML 生成包含Open Graph meta標籤的HTML頁面
 func generateMetaHTML(shortCode, originalURL, baseURL string) string {
-	// 從原始URL提取域名作為標題
-	parsedURL, err := url.Parse(originalURL)
-	title := "短網址服務"
-	description := "點擊查看完整內容"
-	if err == nil && parsedURL.Host != "" {
-		title = parsedURL.Host
-		description = fmt.Sprintf("短網址：%s", originalURL)
-	}
-	
+	// 從目標URL抓取Open Graph信息
+	ogMeta := fetchOGMetadata(originalURL)
+
 	// 構建完整的短網址URL
 	shortURL := fmt.Sprintf("%s/url/%s", baseURL, shortCode)
-	
-	// 默認圖片URL（可以替換為你的logo或默認圖片）
-	imageURL := fmt.Sprintf("%s/og-image.png", baseURL)
-	
+
+	// 如果沒有圖片，使用默認圖片
+	imageURL := ogMeta.Image
+	if imageURL == "" {
+		imageURL = fmt.Sprintf("%s/og-image.png", baseURL)
+	}
+
+	// 確保圖片URL是絕對路徑
+	if imageURL != "" && !strings.HasPrefix(imageURL, "http://") && !strings.HasPrefix(imageURL, "https://") {
+		if parsedURL, err := url.Parse(originalURL); err == nil {
+			if absImageURL, err := parsedURL.Parse(imageURL); err == nil {
+				imageURL = absImageURL.String()
+			} else {
+				// 如果解析失敗，嘗試拼接
+				if parsedURL.Scheme != "" && parsedURL.Host != "" {
+					baseURL := fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host)
+					if strings.HasPrefix(imageURL, "/") {
+						imageURL = baseURL + imageURL
+					} else {
+						imageURL = baseURL + "/" + imageURL
+					}
+				}
+			}
+		}
+	}
+
 	html := fmt.Sprintf(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -428,11 +552,12 @@ func generateMetaHTML(shortCode, originalURL, baseURL string) string {
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	
 	<!-- Open Graph / Facebook -->
-	<meta property="og:type" content="website">
+	<meta property="og:type" content="%s">
 	<meta property="og:url" content="%s">
 	<meta property="og:title" content="%s">
 	<meta property="og:description" content="%s">
 	<meta property="og:image" content="%s">
+	%s
 	
 	<!-- Twitter -->
 	<meta property="twitter:card" content="summary_large_image">
@@ -452,13 +577,19 @@ func generateMetaHTML(shortCode, originalURL, baseURL string) string {
 <body>
 	<p>正在跳轉到 <a href="%s">%s</a>...</p>
 </body>
-</html>`, 
-		shortURL, title, description, imageURL,
-		shortURL, title, description, imageURL,
-		description, title,
+</html>`,
+		ogMeta.Type, shortURL, ogMeta.Title, ogMeta.Description, imageURL,
+		func() string {
+			if ogMeta.SiteName != "" {
+				return fmt.Sprintf(`<meta property="og:site_name" content="%s">`, ogMeta.SiteName)
+			}
+			return ""
+		}(),
+		shortURL, ogMeta.Title, ogMeta.Description, imageURL,
+		ogMeta.Description, ogMeta.Title,
 		originalURL, originalURL,
 		originalURL, originalURL)
-	
+
 	return html
 }
 
@@ -494,15 +625,15 @@ func RedirectURL(c *fiber.Ctx) error {
 		INSERT INTO clicks (id, url_id, clicked_at, ip_address, user_agent, referrer, device_type, location)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
-	
+
 	clickID := uuid.New()
 	clickedAt := time.Now()
-	ipAddress := getRealIP(c)        // 使用真實IP
-	userAgent := getRealUserAgent(c) // 使用真實User-Agent
-	referrer := getRealReferrer(c)   // 使用真實Referrer
+	ipAddress := getRealIP(c)                // 使用真實IP
+	userAgent := getRealUserAgent(c)         // 使用真實User-Agent
+	referrer := getRealReferrer(c)           // 使用真實Referrer
 	deviceType := parseDeviceType(userAgent) // 解析設備類型
-	location := getIPLocation(ipAddress)    // 查詢地理位置
-	
+	location := getIPLocation(ipAddress)     // 查詢地理位置
+
 	// 記錄所有相關的HTTP頭以便調試（開發環境）
 	if os.Getenv("DEBUG") == "true" {
 		log.Printf("Click recorded - IP: %s, User-Agent: %s, Referrer: %s, Device: %s, Location: %s",
@@ -510,7 +641,7 @@ func RedirectURL(c *fiber.Ctx) error {
 		log.Printf("HTTP Headers - X-Forwarded-For: %s, X-Real-IP: %s, X-Forwarded-User-Agent: %s",
 			c.Get("X-Forwarded-For"), c.Get("X-Real-IP"), c.Get("X-Forwarded-User-Agent"))
 	}
-	
+
 	// 記錄點擊（地理位置查詢已設置超時，不會長時間阻塞）
 	_, err = db.GetDB().Exec(context.Background(), clickQuery, clickID, urlID, clickedAt, ipAddress, userAgent, referrer, deviceType, location)
 	if err != nil {
@@ -519,7 +650,14 @@ func RedirectURL(c *fiber.Ctx) error {
 	}
 
 	// 檢測是否為社交媒體爬蟲
-	if isSocialMediaBot(userAgent) {
+	// 也檢查X-Forwarded-User-Agent，因為代理可能會修改User-Agent
+	forwardedUA := c.Get("X-Forwarded-User-Agent")
+	isBot := isSocialMediaBot(userAgent) || (forwardedUA != "" && isSocialMediaBot(forwardedUA))
+
+	// 調試日誌（生產環境也可以保留，幫助排查問題）
+	log.Printf("User-Agent: %s, X-Forwarded-User-Agent: %s, IsBot: %v", userAgent, forwardedUA, isBot)
+
+	if isBot {
 		// 獲取base URL
 		baseURL := "https://xsong.us"
 		if envBaseURL := os.Getenv("BASE_URL"); envBaseURL != "" {
@@ -534,7 +672,9 @@ func RedirectURL(c *fiber.Ctx) error {
 				baseURL = fmt.Sprintf("%s://%s", protocol, host)
 			}
 		}
-		
+
+		log.Printf("Returning meta HTML for bot. BaseURL: %s, ShortCode: %s", baseURL, shortCode)
+
 		// 返回包含Open Graph meta標籤的HTML頁面
 		html := generateMetaHTML(shortCode, originalURL, baseURL)
 		c.Set("Content-Type", "text/html; charset=utf-8")
