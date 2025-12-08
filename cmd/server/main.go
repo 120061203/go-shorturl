@@ -22,6 +22,8 @@ func main() {
 
 	// 建立 Fiber 應用程式
 	app := fiber.New(fiber.Config{
+		// 配置代理頭，以便正確獲取真實客戶端IP
+		ProxyHeader: "X-Forwarded-For",
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {
@@ -54,7 +56,7 @@ func main() {
 	// 健康檢查端點
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
-			"status": "ok",
+			"status":  "ok",
 			"message": "Short URL service is running",
 		})
 	})
@@ -65,10 +67,10 @@ func main() {
 			"message": "Short URL Service",
 			"version": "1.0.0",
 			"endpoints": fiber.Map{
-				"POST /api/shorten": "Create a short URL",
-				"GET /:short_code": "Redirect to original URL",
+				"POST /api/shorten":          "Create a short URL",
+				"GET /:short_code":           "Redirect to original URL",
 				"GET /api/stats/:short_code": "Get URL statistics",
-				"GET /health": "Health check",
+				"GET /health":                "Health check",
 			},
 		})
 	})

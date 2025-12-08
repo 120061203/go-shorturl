@@ -25,7 +25,7 @@ func isValidURL(rawURL string) bool {
 	if !strings.HasPrefix(rawURL, "http://") && !strings.HasPrefix(rawURL, "https://") {
 		rawURL = "https://" + rawURL
 	}
-	
+
 	parsedURL, err := url.Parse(rawURL)
 	return err == nil && parsedURL.Scheme != "" && parsedURL.Host != ""
 }
@@ -47,9 +47,9 @@ func generateShortCode(originalURL string) (string, error) {
 	} else if strings.HasPrefix(urlWithoutProtocol, "http://") {
 		urlWithoutProtocol = strings.TrimPrefix(urlWithoutProtocol, "http://")
 	}
-	
+
 	originalLength := len(urlWithoutProtocol)
-	
+
 	// 短碼長度應該是原始長度的一半，但至少6個字符，最多12個字符
 	shortCodeLength := originalLength / 2
 	if shortCodeLength < 6 {
@@ -57,7 +57,7 @@ func generateShortCode(originalURL string) (string, error) {
 	} else if shortCodeLength > 12 {
 		shortCodeLength = 12
 	}
-	
+
 	// 確保短碼比原始網址短
 	if shortCodeLength >= originalLength {
 		shortCodeLength = originalLength - 1
@@ -65,7 +65,7 @@ func generateShortCode(originalURL string) (string, error) {
 			shortCodeLength = 6
 		}
 	}
-	
+
 	bytes := make([]byte, shortCodeLength)
 	if _, err := rand.Read(bytes); err != nil {
 		return "", err
@@ -84,7 +84,7 @@ func ShortenURL(c *fiber.Ctx) error {
 
 	// 標準化 URL
 	normalizedURL := normalizeURL(req.URL)
-	
+
 	// 驗證 URL
 	if !isValidURL(normalizedURL) {
 		return c.Status(400).JSON(fiber.Map{
@@ -145,10 +145,10 @@ func ShortenURL(c *fiber.Ctx) error {
 		VALUES ($1, $2, $3, $4)
 		RETURNING id, created_at
 	`
-	
+
 	id := uuid.New()
 	createdAt := time.Now()
-	
+
 	err = db.GetDB().QueryRow(context.Background(), query, id, normalizedURL, shortCode, createdAt).Scan(&id, &createdAt)
 	if err != nil {
 		log.Printf("Error inserting URL: %v", err)
@@ -159,7 +159,7 @@ func ShortenURL(c *fiber.Ctx) error {
 
 	// 構建短網址
 	baseURL := "http://localhost:8080"
-	
+
 	// 嘗試從環境變數獲取域名
 	if envBaseURL := os.Getenv("BASE_URL"); envBaseURL != "" {
 		baseURL = envBaseURL
@@ -173,7 +173,7 @@ func ShortenURL(c *fiber.Ctx) error {
 			baseURL = fmt.Sprintf("%s://%s", protocol, host)
 		}
 	}
-	
+
 	// 統一使用 /url/ 格式
 	shortURL := fmt.Sprintf("%s/url/%s", baseURL, shortCode)
 
@@ -185,6 +185,87 @@ func ShortenURL(c *fiber.Ctx) error {
 	}
 
 	return c.Status(201).JSON(response)
+}
+
+// getRealIP 從 HTTP 頭中獲取真實 IP 地址
+func getRealIP(c *fiber.Ctx) string {
+	// 優先從 X-Forwarded-For 獲取（可能包含多個IP，取第一個）
+	if xff := c.Get("X-Forwarded-For"); xff != "" {
+		ips := strings.Split(xff, ",")
+		if len(ips) > 0 {
+			realIP := strings.TrimSpace(ips[0])
+			if realIP != "" {
+				return realIP
+			}
+		}
+	}
+
+	// 從 X-Real-IP 獲取
+	if xri := c.Get("X-Real-IP"); xri != "" {
+		return xri
+	}
+
+	// 從 X-Client-IP 獲取
+	if xci := c.Get("X-Client-IP"); xci != "" {
+		return xci
+	}
+
+	// 從 CF-Connecting-IP 獲取（Cloudflare）
+	if cfip := c.Get("CF-Connecting-IP"); cfip != "" {
+		return cfip
+	}
+
+	// 最後使用 Fiber 的 IP() 方法
+	return c.IP()
+}
+
+// getRealUserAgent 從 HTTP 頭中獲取真實 User-Agent
+func getRealUserAgent(c *fiber.Ctx) string {
+	// 優先從 X-Forwarded-User-Agent 獲取
+	if xfua := c.Get("X-Forwarded-User-Agent"); xfua != "" {
+		return xfua
+	}
+
+	// 從 X-User-Agent 獲取
+	if xua := c.Get("X-User-Agent"); xua != "" {
+		return xua
+	}
+
+	// 最後使用標準 User-Agent
+	ua := string(c.Request().Header.UserAgent())
+	if ua == "" {
+		return "Unknown"
+	}
+	return ua
+}
+
+// getRealReferrer 從 HTTP 頭中獲取真實 Referrer
+func getRealReferrer(c *fiber.Ctx) string {
+	// 優先從 X-Forwarded-Referer 獲取
+	if xfr := c.Get("X-Forwarded-Referer"); xfr != "" {
+		// 過濾掉自己的域名
+		if !strings.Contains(xfr, "xsong.us") {
+			return xfr
+		}
+		return ""
+	}
+
+	// 從 X-Referer 獲取
+	if xr := c.Get("X-Referer"); xr != "" {
+		if !strings.Contains(xr, "xsong.us") {
+			return xr
+		}
+		return ""
+	}
+
+	// 從標準 Referer 頭獲取
+	referrer := string(c.Request().Header.Referer())
+	// 過濾掉自己的域名（xsong.us），返回空表示直接訪問
+	if referrer != "" && !strings.Contains(referrer, "xsong.us") {
+		return referrer
+	}
+
+	return ""
 }
 
 // RedirectURL 重定向到原始網址
@@ -200,7 +281,7 @@ func RedirectURL(c *fiber.Ctx) error {
 	query := "SELECT id, original_url FROM urls WHERE short_code = $1"
 	var urlID uuid.UUID
 	var originalURL string
-	
+
 	err := db.GetDB().QueryRow(context.Background(), query, shortCode).Scan(&urlID, &originalURL)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -214,18 +295,26 @@ func RedirectURL(c *fiber.Ctx) error {
 		})
 	}
 
-	// 記錄點擊
+	// 記錄點擊 - 使用真實的客戶端信息
 	clickQuery := `
 		INSERT INTO clicks (id, url_id, clicked_at, ip_address, user_agent, referrer)
 		VALUES ($1, $2, $3, $4, $5, $6)
 	`
-	
+
 	clickID := uuid.New()
 	clickedAt := time.Now()
-	ipAddress := c.IP()
-	userAgent := string(c.Request().Header.UserAgent())
-	referrer := string(c.Request().Header.Referer())
-	
+	ipAddress := getRealIP(c)        // 使用真實IP
+	userAgent := getRealUserAgent(c) // 使用真實User-Agent
+	referrer := getRealReferrer(c)   // 使用真實Referrer
+
+	// 記錄所有相關的HTTP頭以便調試（開發環境）
+	if os.Getenv("DEBUG") == "true" {
+		log.Printf("Click recorded - IP: %s, User-Agent: %s, Referrer: %s",
+			ipAddress, userAgent, referrer)
+		log.Printf("HTTP Headers - X-Forwarded-For: %s, X-Real-IP: %s, X-Forwarded-User-Agent: %s",
+			c.Get("X-Forwarded-For"), c.Get("X-Real-IP"), c.Get("X-Forwarded-User-Agent"))
+	}
+
 	_, err = db.GetDB().Exec(context.Background(), clickQuery, clickID, urlID, clickedAt, ipAddress, userAgent, referrer)
 	if err != nil {
 		log.Printf("Error recording click: %v", err)
@@ -249,7 +338,7 @@ func GetStats(c *fiber.Ctx) error {
 	var urlID uuid.UUID
 	var originalURL string
 	var createdAt time.Time
-	
+
 	err := db.GetDB().QueryRow(context.Background(), urlQuery, shortCode).Scan(&urlID, &originalURL, &createdAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -283,7 +372,7 @@ func GetStats(c *fiber.Ctx) error {
 		ORDER BY count DESC
 		LIMIT 10
 	`
-	
+
 	deviceRows, err := db.GetDB().Query(context.Background(), deviceQuery, urlID)
 	if err != nil {
 		log.Printf("Error querying device stats: %v", err)
@@ -313,7 +402,7 @@ func GetStats(c *fiber.Ctx) error {
 		ORDER BY count DESC
 		LIMIT 10
 	`
-	
+
 	referrerRows, err := db.GetDB().Query(context.Background(), referrerQuery, urlID)
 	if err != nil {
 		log.Printf("Error querying referrer stats: %v", err)

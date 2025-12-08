@@ -24,6 +24,8 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 	// 建立 Fiber 應用程式
 	app := fiber.New(fiber.Config{
+		// 配置代理頭，以便正確獲取真實客戶端IP
+		ProxyHeader: "X-Forwarded-For",
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {
