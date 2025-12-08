@@ -115,19 +115,45 @@
           </div>
         </div>
 
-        <!-- Time Distribution -->
+        <!-- Time Distribution - 柱狀圖 -->
         <div v-if="stats.time_distribution && stats.time_distribution.length > 0" class="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
           <h2 class="text-2xl font-bold text-white mb-6">點擊時間分布</h2>
-          <div class="space-y-3">
-            <div v-for="timeStat in stats.time_distribution" :key="timeStat.time" class="bg-white/5 rounded-xl p-4">
-              <div class="flex justify-between items-center mb-2">
-                <span class="text-gray-300 font-medium">{{ formatTime(timeStat.time) }}</span>
-                <span class="text-white font-semibold">{{ timeStat.count }}</span>
+          <div class="overflow-x-auto">
+            <div class="flex items-end justify-start gap-2 min-h-[300px] pb-8">
+              <div 
+                v-for="timeStat in stats.time_distribution" 
+                :key="timeStat.time" 
+                class="flex flex-col items-center group min-w-[40px]"
+              >
+                <div class="w-full flex flex-col items-center mb-2">
+                  <span class="text-white font-semibold text-xs mb-1">{{ timeStat.count }}</span>
+                  <div 
+                    class="w-full bg-gradient-to-t from-yellow-500 to-orange-500 rounded-t-lg transition-all duration-500 hover:from-yellow-400 hover:to-orange-400 group-hover:opacity-90 cursor-pointer"
+                    :style="{ height: `${Math.max((timeStat.count / getMaxTimeCount()) * 100, 5)}%`, minHeight: '8px' }"
+                    :title="`${formatTime(timeStat.time)}: ${timeStat.count}次點擊`"
+                  ></div>
+                </div>
+                <span class="text-gray-400 text-xs mt-2 text-center leading-tight" style="transform: rotate(-45deg); transform-origin: center;">
+                  {{ formatTimeLabel(timeStat.time) }}
+                </span>
               </div>
-              <div class="bg-white/10 rounded-full h-2">
+            </div>
+          </div>
+        </div>
+
+        <!-- OS Stats -->
+        <div v-if="stats.os_stats && stats.os_stats.length > 0" class="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
+          <h2 class="text-2xl font-bold text-white mb-6">操作系統分布</h2>
+          <div class="space-y-4">
+            <div v-for="os in stats.os_stats" :key="os.os" class="bg-white/5 rounded-xl p-6">
+              <div class="flex justify-between items-center mb-3">
+                <span class="text-gray-300 font-medium text-lg">{{ os.os }}</span>
+                <span class="text-white font-semibold text-lg">{{ os.count }}</span>
+              </div>
+              <div class="bg-white/10 rounded-full h-3">
                 <div 
-                  class="bg-gradient-to-r from-yellow-500 to-orange-500 h-2 rounded-full transition-all duration-500" 
-                  :style="{ width: `${(timeStat.count / getMaxTimeCount()) * 100}%` }"
+                  class="bg-gradient-to-r from-cyan-500 to-blue-500 h-3 rounded-full transition-all duration-500" 
+                  :style="{ width: `${(os.count / stats.total_clicks) * 100}%` }"
                 ></div>
               </div>
             </div>
@@ -192,7 +218,7 @@
         </div>
 
         <!-- Empty State -->
-        <div v-if="!stats.device_stats?.length && !stats.referrer_stats?.length && !stats.ip_stats?.length && !stats.time_distribution?.length && !stats.device_type_stats?.length && !stats.location_stats?.length" class="text-center py-20">
+        <div v-if="!stats.device_stats?.length && !stats.referrer_stats?.length && !stats.ip_stats?.length && !stats.time_distribution?.length && !stats.device_type_stats?.length && !stats.location_stats?.length && !stats.os_stats?.length" class="text-center py-20">
           <div class="bg-white/5 rounded-2xl p-8 max-w-md mx-auto">
             <p class="text-gray-300">還沒有點擊數據</p>
             <p class="text-gray-400 text-sm mt-2">分享你的短網址來開始收集數據</p>
@@ -246,6 +272,11 @@ interface LocationStat {
   count: number
 }
 
+interface OSStat {
+  os: string
+  count: number
+}
+
 interface Stats {
   short_code: string
   original_url: string
@@ -257,6 +288,7 @@ interface Stats {
   time_distribution?: TimeDistributionStat[]
   device_type_stats?: DeviceTypeStat[]
   location_stats?: LocationStat[]
+  os_stats?: OSStat[]
 }
 
 const route = useRoute()
@@ -319,6 +351,19 @@ const formatTime = (timeStr: string): string => {
     const [date, hour] = timeStr.split(' ')
     const [year, month, day] = date.split('-')
     return `${year}-${month}-${day} ${hour}:00`
+  } catch {
+    return timeStr
+  }
+}
+
+// 格式化時間標籤（用於柱狀圖）
+const formatTimeLabel = (timeStr: string): string => {
+  try {
+    // 格式: "2024-01-01 14:00"
+    const [date, hour] = timeStr.split(' ')
+    const [year, month, day] = date.split('-')
+    // 只顯示日期和小時，簡化顯示
+    return `${month}/${day} ${hour}:00`
   } catch {
     return timeStr
   }

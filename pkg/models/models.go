@@ -51,6 +51,7 @@ type StatsResponse struct {
 	TimeDistribution []TimeDistributionStat `json:"time_distribution"`
 	DeviceTypeStats  []DeviceTypeStat      `json:"device_type_stats"`
 	LocationStats    []LocationStat        `json:"location_stats"`
+	OSStats          []OSStat              `json:"os_stats"`
 }
 
 // DeviceStat 裝置統計
@@ -87,4 +88,10 @@ type DeviceTypeStat struct {
 type LocationStat struct {
 	Location string `json:"location"` // 地理位置，如 "中國, 北京, 北京"
 	Count    int    `json:"count"`    // 該地理位置的點擊數
+}
+
+// OSStat 操作系統統計
+type OSStat struct {
+	OS    string `json:"os"`    // 操作系統，如 "macOS 10.15", "iOS 18.6", "Android 14"
+	Count int    `json:"count"` // 該操作系統的點擊數
 }

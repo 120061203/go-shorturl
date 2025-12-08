@@ -246,27 +246,92 @@ func getRealUserAgent(c *fiber.Ctx) string {
 // parseDeviceType 從 User-Agent 解析設備類型
 func parseDeviceType(userAgent string) string {
 	ua := strings.ToLower(userAgent)
-
+	
 	// 檢查是否為移動設備
-	if strings.Contains(ua, "mobile") ||
-		strings.Contains(ua, "android") ||
+	if strings.Contains(ua, "mobile") || 
+		strings.Contains(ua, "android") || 
 		strings.Contains(ua, "iphone") ||
 		strings.Contains(ua, "ipod") ||
 		strings.Contains(ua, "blackberry") ||
 		strings.Contains(ua, "windows phone") {
 		return "手機"
 	}
-
+	
 	// 檢查是否為平板
-	if strings.Contains(ua, "tablet") ||
+	if strings.Contains(ua, "tablet") || 
 		strings.Contains(ua, "ipad") ||
 		strings.Contains(ua, "playbook") ||
 		strings.Contains(ua, "kindle") {
 		return "平板"
 	}
-
+	
 	// 默認為電腦
 	return "電腦"
+}
+
+// parseOS 從 User-Agent 解析操作系統
+func parseOS(userAgent string) string {
+	ua := strings.ToLower(userAgent)
+	
+	// iOS
+	if strings.Contains(ua, "iphone") || strings.Contains(ua, "ipad") || strings.Contains(ua, "ipod") {
+		// 提取iOS版本
+		if matches := regexp.MustCompile(`os\s+(\d+)[._](\d+)`).FindStringSubmatch(ua); len(matches) > 0 {
+			return fmt.Sprintf("iOS %s.%s", matches[1], matches[2])
+		}
+		return "iOS"
+	}
+	
+	// Android
+	if strings.Contains(ua, "android") {
+		// 提取Android版本
+		if matches := regexp.MustCompile(`android\s+(\d+)[._](\d+)`).FindStringSubmatch(ua); len(matches) > 0 {
+			return fmt.Sprintf("Android %s.%s", matches[1], matches[2])
+		}
+		return "Android"
+	}
+	
+	// macOS
+	if strings.Contains(ua, "macintosh") || strings.Contains(ua, "mac os x") || strings.Contains(ua, "macos") {
+		// 提取macOS版本 - 匹配 "mac os x 10_15_7" 或 "mac os x 10.15.7"
+		if matches := regexp.MustCompile(`mac\s+os\s+x\s+(\d+)[._](\d+)(?:[._](\d+))?`).FindStringSubmatch(ua); len(matches) > 0 {
+			if len(matches) > 3 && matches[3] != "" {
+				return fmt.Sprintf("macOS %s.%s.%s", matches[1], matches[2], matches[3])
+			}
+			return fmt.Sprintf("macOS %s.%s", matches[1], matches[2])
+		}
+		return "macOS"
+	}
+	
+	// Windows
+	if strings.Contains(ua, "windows") {
+		// 提取Windows版本
+		if strings.Contains(ua, "windows nt 10") || strings.Contains(ua, "windows 10") {
+			return "Windows 10/11"
+		}
+		if strings.Contains(ua, "windows nt 6.3") {
+			return "Windows 8.1"
+		}
+		if strings.Contains(ua, "windows nt 6.2") {
+			return "Windows 8"
+		}
+		if strings.Contains(ua, "windows nt 6.1") {
+			return "Windows 7"
+		}
+		return "Windows"
+	}
+	
+	// Linux
+	if strings.Contains(ua, "linux") {
+		return "Linux"
+	}
+	
+	// Chrome OS
+	if strings.Contains(ua, "cros") {
+		return "Chrome OS"
+	}
+	
+	return "其他"
 }
 
 // IPLocation IP地理位置信息
@@ -923,6 +988,52 @@ func GetStats(c *fiber.Ctx) error {
 		locationStats = append(locationStats, stat)
 	}
 
+	// 查詢操作系統統計（從user_agent解析）
+	osQuery := `
+		SELECT user_agent
+		FROM clicks
+		WHERE url_id = $1 AND user_agent IS NOT NULL AND user_agent != ''
+	`
+
+	osRows, err := db.GetDB().Query(context.Background(), osQuery, urlID)
+	if err != nil {
+		log.Printf("Error querying OS stats: %v", err)
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Database error",
+		})
+	}
+	defer osRows.Close()
+
+	// 統計操作系統
+	osCountMap := make(map[string]int)
+	for osRows.Next() {
+		var userAgent string
+		err := osRows.Scan(&userAgent)
+		if err != nil {
+			log.Printf("Error scanning user agent: %v", err)
+			continue
+		}
+		os := parseOS(userAgent)
+		osCountMap[os]++
+	}
+
+	// 轉換為切片並排序
+	var osStats []models.OSStat
+	for os, count := range osCountMap {
+		osStats = append(osStats, models.OSStat{
+			OS:    os,
+			Count: count,
+		})
+	}
+	// 按點擊數排序
+	for i := 0; i < len(osStats)-1; i++ {
+		for j := i + 1; j < len(osStats); j++ {
+			if osStats[i].Count < osStats[j].Count {
+				osStats[i], osStats[j] = osStats[j], osStats[i]
+			}
+		}
+	}
+
 	response := models.StatsResponse{
 		ShortCode:        shortCode,
 		OriginalURL:      originalURL,
@@ -934,6 +1045,7 @@ func GetStats(c *fiber.Ctx) error {
 		TimeDistribution: timeDistribution,
 		DeviceTypeStats:  deviceTypeStats,
 		LocationStats:    locationStats,
+		OSStats:          osStats,
 	}
 
 	return c.JSON(response)
