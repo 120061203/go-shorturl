@@ -47,8 +47,10 @@ type StatsResponse struct {
 	CreatedAt        time.Time             `json:"created_at"`
 	DeviceStats      []DeviceStat          `json:"device_stats"`
 	ReferrerStats    []ReferrerStat        `json:"referrer_stats"`
-	IPStats          []IPStat               `json:"ip_stats"`
+	IPStats          []IPStat              `json:"ip_stats"`
 	TimeDistribution []TimeDistributionStat `json:"time_distribution"`
+	DeviceTypeStats  []DeviceTypeStat      `json:"device_type_stats"`
+	LocationStats    []LocationStat        `json:"location_stats"`
 }
 
 // DeviceStat 裝置統計
@@ -73,4 +75,16 @@ type IPStat struct {
 type TimeDistributionStat struct {
 	Time  string `json:"time"`  // 時間標籤，如 "2024-01-01" 或 "14:00"
 	Count int    `json:"count"` // 該時間段的點擊數
+}
+
+// DeviceTypeStat 設備類型統計
+type DeviceTypeStat struct {
+	DeviceType string `json:"device_type"` // 設備類型：手機、電腦、平板
+	Count      int    `json:"count"`       // 該設備類型的點擊數
+}
+
+// LocationStat 地理位置統計
+type LocationStat struct {
+	Location string `json:"location"` // 地理位置，如 "中國, 北京, 北京"
+	Count    int    `json:"count"`    // 該地理位置的點擊數
 }

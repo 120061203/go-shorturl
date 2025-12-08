@@ -4,8 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -239,6 +242,103 @@ func getRealUserAgent(c *fiber.Ctx) string {
 	return ua
 }
 
+// parseDeviceType 從 User-Agent 解析設備類型
+func parseDeviceType(userAgent string) string {
+	ua := strings.ToLower(userAgent)
+	
+	// 檢查是否為移動設備
+	if strings.Contains(ua, "mobile") || 
+		strings.Contains(ua, "android") || 
+		strings.Contains(ua, "iphone") ||
+		strings.Contains(ua, "ipod") ||
+		strings.Contains(ua, "blackberry") ||
+		strings.Contains(ua, "windows phone") {
+		return "手機"
+	}
+	
+	// 檢查是否為平板
+	if strings.Contains(ua, "tablet") || 
+		strings.Contains(ua, "ipad") ||
+		strings.Contains(ua, "playbook") ||
+		strings.Contains(ua, "kindle") {
+		return "平板"
+	}
+	
+	// 默認為電腦
+	return "電腦"
+}
+
+// IPLocation IP地理位置信息
+type IPLocation struct {
+	Country     string `json:"country"`
+	Region      string `json:"regionName"`
+	City        string `json:"city"`
+	ISP         string `json:"isp"`
+	CountryCode string `json:"countryCode"`
+}
+
+// getIPLocation 查詢IP地理位置（使用ip-api.com免費API）
+func getIPLocation(ipAddress string) string {
+	// 跳過本地IP和私有IP
+	if ipAddress == "" || 
+		strings.HasPrefix(ipAddress, "127.") ||
+		strings.HasPrefix(ipAddress, "192.168.") ||
+		strings.HasPrefix(ipAddress, "10.") ||
+		strings.HasPrefix(ipAddress, "172.") ||
+		ipAddress == "::1" ||
+		ipAddress == "localhost" {
+		return "本地"
+	}
+	
+	// 使用ip-api.com免費API（無需API key，但有速率限制）
+	apiURL := fmt.Sprintf("http://ip-api.com/json/%s?fields=status,country,regionName,city,isp,countryCode&lang=zh-CN", ipAddress)
+	
+	client := &http.Client{
+		Timeout: 2 * time.Second, // 設置超時，避免阻塞
+	}
+	
+	resp, err := client.Get(apiURL)
+	if err != nil {
+		log.Printf("Error fetching IP location: %v", err)
+		return "未知"
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return "未知"
+	}
+	
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("Error reading IP location response: %v", err)
+		return "未知"
+	}
+	
+	var location IPLocation
+	if err := json.Unmarshal(body, &location); err != nil {
+		log.Printf("Error parsing IP location: %v", err)
+		return "未知"
+	}
+	
+	// 構建地理位置字符串
+	parts := []string{}
+	if location.Country != "" {
+		parts = append(parts, location.Country)
+	}
+	if location.Region != "" && location.Region != location.Country {
+		parts = append(parts, location.Region)
+	}
+	if location.City != "" {
+		parts = append(parts, location.City)
+	}
+	
+	if len(parts) > 0 {
+		return strings.Join(parts, ", ")
+	}
+	
+	return "未知"
+}
+
 // getRealReferrer 從 HTTP 頭中獲取真實 Referrer
 func getRealReferrer(c *fiber.Ctx) string {
 	// 優先從 X-Forwarded-Referer 獲取
@@ -297,25 +397,28 @@ func RedirectURL(c *fiber.Ctx) error {
 
 	// 記錄點擊 - 使用真實的客戶端信息
 	clickQuery := `
-		INSERT INTO clicks (id, url_id, clicked_at, ip_address, user_agent, referrer)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO clicks (id, url_id, clicked_at, ip_address, user_agent, referrer, device_type, location)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
-
+	
 	clickID := uuid.New()
 	clickedAt := time.Now()
 	ipAddress := getRealIP(c)        // 使用真實IP
 	userAgent := getRealUserAgent(c) // 使用真實User-Agent
 	referrer := getRealReferrer(c)   // 使用真實Referrer
-
+	deviceType := parseDeviceType(userAgent) // 解析設備類型
+	location := getIPLocation(ipAddress)    // 查詢地理位置
+	
 	// 記錄所有相關的HTTP頭以便調試（開發環境）
 	if os.Getenv("DEBUG") == "true" {
-		log.Printf("Click recorded - IP: %s, User-Agent: %s, Referrer: %s",
-			ipAddress, userAgent, referrer)
+		log.Printf("Click recorded - IP: %s, User-Agent: %s, Referrer: %s, Device: %s, Location: %s",
+			ipAddress, userAgent, referrer, deviceType, location)
 		log.Printf("HTTP Headers - X-Forwarded-For: %s, X-Real-IP: %s, X-Forwarded-User-Agent: %s",
 			c.Get("X-Forwarded-For"), c.Get("X-Real-IP"), c.Get("X-Forwarded-User-Agent"))
 	}
-
-	_, err = db.GetDB().Exec(context.Background(), clickQuery, clickID, urlID, clickedAt, ipAddress, userAgent, referrer)
+	
+	// 記錄點擊（地理位置查詢已設置超時，不會長時間阻塞）
+	_, err = db.GetDB().Exec(context.Background(), clickQuery, clickID, urlID, clickedAt, ipAddress, userAgent, referrer, deviceType, location)
 	if err != nil {
 		log.Printf("Error recording click: %v", err)
 		// 不返回錯誤，因為重定向仍然應該工作
@@ -503,6 +606,65 @@ func GetStats(c *fiber.Ctx) error {
 		timeDistribution[i], timeDistribution[j] = timeDistribution[j], timeDistribution[i]
 	}
 
+	// 查詢設備類型統計
+	deviceTypeQuery := `
+		SELECT device_type, COUNT(*) as count
+		FROM clicks
+		WHERE url_id = $1 AND device_type IS NOT NULL AND device_type != ''
+		GROUP BY device_type
+		ORDER BY count DESC
+	`
+
+	deviceTypeRows, err := db.GetDB().Query(context.Background(), deviceTypeQuery, urlID)
+	if err != nil {
+		log.Printf("Error querying device type stats: %v", err)
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Database error",
+		})
+	}
+	defer deviceTypeRows.Close()
+
+	var deviceTypeStats []models.DeviceTypeStat
+	for deviceTypeRows.Next() {
+		var stat models.DeviceTypeStat
+		err := deviceTypeRows.Scan(&stat.DeviceType, &stat.Count)
+		if err != nil {
+			log.Printf("Error scanning device type stat: %v", err)
+			continue
+		}
+		deviceTypeStats = append(deviceTypeStats, stat)
+	}
+
+	// 查詢地理位置統計
+	locationQuery := `
+		SELECT location, COUNT(*) as count
+		FROM clicks
+		WHERE url_id = $1 AND location IS NOT NULL AND location != '' AND location != '未知'
+		GROUP BY location
+		ORDER BY count DESC
+		LIMIT 20
+	`
+
+	locationRows, err := db.GetDB().Query(context.Background(), locationQuery, urlID)
+	if err != nil {
+		log.Printf("Error querying location stats: %v", err)
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Database error",
+		})
+	}
+	defer locationRows.Close()
+
+	var locationStats []models.LocationStat
+	for locationRows.Next() {
+		var stat models.LocationStat
+		err := locationRows.Scan(&stat.Location, &stat.Count)
+		if err != nil {
+			log.Printf("Error scanning location stat: %v", err)
+			continue
+		}
+		locationStats = append(locationStats, stat)
+	}
+
 	response := models.StatsResponse{
 		ShortCode:        shortCode,
 		OriginalURL:      originalURL,
@@ -512,6 +674,8 @@ func GetStats(c *fiber.Ctx) error {
 		ReferrerStats:    referrerStats,
 		IPStats:          ipStats,
 		TimeDistribution: timeDistribution,
+		DeviceTypeStats:  deviceTypeStats,
+		LocationStats:    locationStats,
 	}
 
 	return c.JSON(response)

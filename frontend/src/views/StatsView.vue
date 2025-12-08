@@ -134,6 +134,44 @@
           </div>
         </div>
 
+        <!-- Device Type Stats -->
+        <div v-if="stats.device_type_stats && stats.device_type_stats.length > 0" class="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
+          <h2 class="text-2xl font-bold text-white mb-6">設備類型分布</h2>
+          <div class="space-y-4">
+            <div v-for="deviceType in stats.device_type_stats" :key="deviceType.device_type" class="bg-white/5 rounded-xl p-6">
+              <div class="flex justify-between items-center mb-3">
+                <span class="text-gray-300 font-medium text-lg">{{ deviceType.device_type }}</span>
+                <span class="text-white font-semibold text-lg">{{ deviceType.count }}</span>
+              </div>
+              <div class="bg-white/10 rounded-full h-3">
+                <div 
+                  class="bg-gradient-to-r from-indigo-500 to-purple-500 h-3 rounded-full transition-all duration-500" 
+                  :style="{ width: `${(deviceType.count / stats.total_clicks) * 100}%` }"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Location Stats -->
+        <div v-if="stats.location_stats && stats.location_stats.length > 0" class="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
+          <h2 class="text-2xl font-bold text-white mb-6">地理位置分布</h2>
+          <div class="space-y-4">
+            <div v-for="location in stats.location_stats" :key="location.location" class="bg-white/5 rounded-xl p-6">
+              <div class="flex justify-between items-center mb-3">
+                <span class="text-gray-300 font-medium">{{ location.location }}</span>
+                <span class="text-white font-semibold text-lg">{{ location.count }}</span>
+              </div>
+              <div class="bg-white/10 rounded-full h-3">
+                <div 
+                  class="bg-gradient-to-r from-teal-500 to-emerald-500 h-3 rounded-full transition-all duration-500" 
+                  :style="{ width: `${(location.count / stats.total_clicks) * 100}%` }"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Referrer Stats -->
         <div v-if="stats.referrer_stats && stats.referrer_stats.length > 0" class="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
           <h2 class="text-2xl font-bold text-white mb-6">來源統計</h2>
@@ -154,7 +192,7 @@
         </div>
 
         <!-- Empty State -->
-        <div v-if="!stats.device_stats?.length && !stats.referrer_stats?.length && !stats.ip_stats?.length && !stats.time_distribution?.length" class="text-center py-20">
+        <div v-if="!stats.device_stats?.length && !stats.referrer_stats?.length && !stats.ip_stats?.length && !stats.time_distribution?.length && !stats.device_type_stats?.length && !stats.location_stats?.length" class="text-center py-20">
           <div class="bg-white/5 rounded-2xl p-8 max-w-md mx-auto">
             <p class="text-gray-300">還沒有點擊數據</p>
             <p class="text-gray-400 text-sm mt-2">分享你的短網址來開始收集數據</p>
@@ -198,6 +236,16 @@ interface TimeDistributionStat {
   count: number
 }
 
+interface DeviceTypeStat {
+  device_type: string
+  count: number
+}
+
+interface LocationStat {
+  location: string
+  count: number
+}
+
 interface Stats {
   short_code: string
   original_url: string
@@ -207,6 +255,8 @@ interface Stats {
   referrer_stats: ReferrerStat[]
   ip_stats?: IPStat[]
   time_distribution?: TimeDistributionStat[]
+  device_type_stats?: DeviceTypeStat[]
+  location_stats?: LocationStat[]
 }
 
 const route = useRoute()
