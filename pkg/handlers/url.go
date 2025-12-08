@@ -245,24 +245,47 @@ func getRealUserAgent(c *fiber.Ctx) string {
 
 // parseDeviceType 從 User-Agent 解析設備類型
 func parseDeviceType(userAgent string) string {
+	if userAgent == "" {
+		return "未知"
+	}
+	
 	ua := strings.ToLower(userAgent)
 	
-	// 檢查是否為移動設備
-	if strings.Contains(ua, "mobile") || 
-		strings.Contains(ua, "android") || 
-		strings.Contains(ua, "iphone") ||
-		strings.Contains(ua, "ipod") ||
-		strings.Contains(ua, "blackberry") ||
-		strings.Contains(ua, "windows phone") {
-		return "手機"
+	// 優先檢查是否為平板（因為iPad的User-Agent也包含iPhone）
+	if strings.Contains(ua, "ipad") {
+		return "平板"
 	}
 	
 	// 檢查是否為平板
 	if strings.Contains(ua, "tablet") || 
-		strings.Contains(ua, "ipad") ||
 		strings.Contains(ua, "playbook") ||
 		strings.Contains(ua, "kindle") {
 		return "平板"
+	}
+	
+	// 檢查是否為移動設備（手機）
+	if strings.Contains(ua, "iphone") ||
+		strings.Contains(ua, "ipod") {
+		return "手機"
+	}
+	
+	// Android設備
+	if strings.Contains(ua, "android") {
+		// Android平板通常包含"tablet"或特定標識
+		if strings.Contains(ua, "tablet") || 
+			strings.Contains(ua, "pad") ||
+			!strings.Contains(ua, "mobile") {
+			// 檢查屏幕尺寸（如果User-Agent包含）
+			return "平板"
+		}
+		return "手機"
+	}
+	
+	// 其他移動設備
+	if strings.Contains(ua, "mobile") || 
+		strings.Contains(ua, "blackberry") ||
+		strings.Contains(ua, "windows phone") {
+		return "手機"
 	}
 	
 	// 默認為電腦
@@ -930,11 +953,21 @@ func GetStats(c *fiber.Ctx) error {
 	}
 
 	// 查詢設備類型統計
+	// 如果device_type為空，從user_agent重新解析
 	deviceTypeQuery := `
-		SELECT device_type, COUNT(*) as count
+		SELECT 
+			CASE 
+				WHEN device_type IS NOT NULL AND device_type != '' THEN device_type
+				ELSE '未知'
+			END as device_type,
+			COUNT(*) as count
 		FROM clicks
-		WHERE url_id = $1 AND device_type IS NOT NULL AND device_type != ''
-		GROUP BY device_type
+		WHERE url_id = $1
+		GROUP BY 
+			CASE 
+				WHEN device_type IS NOT NULL AND device_type != '' THEN device_type
+				ELSE '未知'
+			END
 		ORDER BY count DESC
 	`
 
@@ -948,6 +981,8 @@ func GetStats(c *fiber.Ctx) error {
 	defer deviceTypeRows.Close()
 
 	var deviceTypeStats []models.DeviceTypeStat
+	deviceTypeMap := make(map[string]int)
+	
 	for deviceTypeRows.Next() {
 		var stat models.DeviceTypeStat
 		err := deviceTypeRows.Scan(&stat.DeviceType, &stat.Count)
@@ -955,7 +990,51 @@ func GetStats(c *fiber.Ctx) error {
 			log.Printf("Error scanning device type stat: %v", err)
 			continue
 		}
-		deviceTypeStats = append(deviceTypeStats, stat)
+		deviceTypeMap[stat.DeviceType] += stat.Count
+	}
+
+	// 如果有很多"未知"，從user_agent重新解析
+	if unknownCount, ok := deviceTypeMap["未知"]; ok && unknownCount > 0 {
+		// 查詢所有device_type為空的記錄的user_agent
+		uaQuery := `
+			SELECT user_agent
+			FROM clicks
+			WHERE url_id = $1 AND (device_type IS NULL OR device_type = '')
+		`
+		uaRows, err := db.GetDB().Query(context.Background(), uaQuery, urlID)
+		if err == nil {
+			defer uaRows.Close()
+			for uaRows.Next() {
+				var userAgent string
+				if err := uaRows.Scan(&userAgent); err == nil && userAgent != "" {
+					deviceType := parseDeviceType(userAgent)
+					deviceTypeMap[deviceType]++
+					deviceTypeMap["未知"]--
+					if deviceTypeMap["未知"] <= 0 {
+						delete(deviceTypeMap, "未知")
+					}
+				}
+			}
+		}
+	}
+
+	// 轉換為切片
+	for deviceType, count := range deviceTypeMap {
+		if count > 0 {
+			deviceTypeStats = append(deviceTypeStats, models.DeviceTypeStat{
+				DeviceType: deviceType,
+				Count:      count,
+			})
+		}
+	}
+
+	// 按點擊數排序
+	for i := 0; i < len(deviceTypeStats)-1; i++ {
+		for j := i + 1; j < len(deviceTypeStats); j++ {
+			if deviceTypeStats[i].Count < deviceTypeStats[j].Count {
+				deviceTypeStats[i], deviceTypeStats[j] = deviceTypeStats[j], deviceTypeStats[i]
+			}
+		}
 	}
 
 	// 查詢地理位置統計
