@@ -9,10 +9,12 @@
       <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center py-4">
           <div class="flex items-center">
-            <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
-              <span class="text-white font-bold text-lg">X</span>
-            </div>
-            <h1 class="ml-3 text-2xl font-bold text-white">xsong</h1>
+            <a href="https://xsong.us" class="flex items-center hover:opacity-80 transition-opacity">
+              <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
+                <span class="text-white font-bold text-lg">X</span>
+              </div>
+              <h1 class="ml-3 text-2xl font-bold text-white">xsong</h1>
+            </a>
           </div>
           <nav class="hidden md:flex space-x-6">
             <router-link
