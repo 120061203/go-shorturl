@@ -758,8 +758,18 @@ func RedirectURL(c *fiber.Ctx) error {
 	// 記錄點擊（地理位置查詢已設置超時，不會長時間阻塞）
 	_, err = db.GetDB().Exec(context.Background(), clickQuery, clickID, urlID, clickedAt, ipAddress, userAgent, referrer, deviceType, location)
 	if err != nil {
-		log.Printf("Error recording click: %v", err)
+		log.Printf("Error recording click for short_code %s: %v", shortCode, err)
 		// 不返回錯誤，因為重定向仍然應該工作
+	} else {
+		// 轉換為東八區時間用於日誌
+		loc, _ := time.LoadLocation("Asia/Shanghai")
+		shanghaiTime := clickedAt.In(loc)
+		// 計算應該出現在哪個時間段（按小時分組）
+		timeSlot := shanghaiTime.Format("2006-01-02 15:00")
+		log.Printf("Click recorded - ShortCode: %s, Time (Shanghai): %s, Will appear in time slot: %s", 
+			shortCode, 
+			shanghaiTime.Format("2006-01-02 15:04:05"),
+			timeSlot)
 	}
 
 	// 檢測是否為社交媒體爬蟲
@@ -941,6 +951,8 @@ func GetStats(c *fiber.Ctx) error {
 
 	// 查詢點擊時間分布（按小時，使用東八區時區）
 	// 將TIMESTAMP轉換為帶時區的時間戳（假設存儲為UTC），然後轉換為東八區
+	// 注意：16:40的點擊會出現在16:00這個時間段（按小時分組）
+	// 查詢所有點擊，不限制時間範圍，只限制返回的時間段數量
 	timeDistributionQuery := `
 		SELECT 
 			TO_CHAR((clicked_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD HH24:00') as time_hour,
@@ -970,6 +982,13 @@ func GetStats(c *fiber.Ctx) error {
 			continue
 		}
 		timeDistribution = append(timeDistribution, stat)
+	}
+
+	// 調試日誌：記錄查詢到的時間分布
+	log.Printf("Time distribution query for short_code %s: found %d time slots", shortCode, len(timeDistribution))
+	if len(timeDistribution) > 0 {
+		log.Printf("  Latest time slot: %s (%d clicks)", timeDistribution[len(timeDistribution)-1].Time, timeDistribution[len(timeDistribution)-1].Count)
+		log.Printf("  Oldest time slot: %s (%d clicks)", timeDistribution[0].Time, timeDistribution[0].Count)
 	}
 
 	// 反轉時間分布順序，讓最早的在前
