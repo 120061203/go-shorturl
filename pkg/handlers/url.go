@@ -368,6 +368,100 @@ func getRealReferrer(c *fiber.Ctx) string {
 	return ""
 }
 
+// isSocialMediaBot 檢測是否為社交媒體爬蟲
+func isSocialMediaBot(userAgent string) bool {
+	ua := strings.ToLower(userAgent)
+	// Facebook爬蟲
+	if strings.Contains(ua, "facebookexternalhit") ||
+		strings.Contains(ua, "facebot") {
+		return true
+	}
+	// Twitter爬蟲
+	if strings.Contains(ua, "twitterbot") {
+		return true
+	}
+	// LinkedIn爬蟲
+	if strings.Contains(ua, "linkedinbot") {
+		return true
+	}
+	// WhatsApp爬蟲
+	if strings.Contains(ua, "whatsapp") {
+		return true
+	}
+	// Telegram爬蟲
+	if strings.Contains(ua, "telegrambot") {
+		return true
+	}
+	// Slack爬蟲
+	if strings.Contains(ua, "slackbot") {
+		return true
+	}
+	// Discord爬蟲
+	if strings.Contains(ua, "discordbot") ||
+		strings.Contains(ua, "discord") {
+		return true
+	}
+	return false
+}
+
+// generateMetaHTML 生成包含Open Graph meta標籤的HTML頁面
+func generateMetaHTML(shortCode, originalURL, baseURL string) string {
+	// 從原始URL提取域名作為標題
+	parsedURL, err := url.Parse(originalURL)
+	title := "短網址服務"
+	description := "點擊查看完整內容"
+	if err == nil && parsedURL.Host != "" {
+		title = parsedURL.Host
+		description = fmt.Sprintf("短網址：%s", originalURL)
+	}
+	
+	// 構建完整的短網址URL
+	shortURL := fmt.Sprintf("%s/url/%s", baseURL, shortCode)
+	
+	// 默認圖片URL（可以替換為你的logo或默認圖片）
+	imageURL := fmt.Sprintf("%s/og-image.png", baseURL)
+	
+	html := fmt.Sprintf(`<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	
+	<!-- Open Graph / Facebook -->
+	<meta property="og:type" content="website">
+	<meta property="og:url" content="%s">
+	<meta property="og:title" content="%s">
+	<meta property="og:description" content="%s">
+	<meta property="og:image" content="%s">
+	
+	<!-- Twitter -->
+	<meta property="twitter:card" content="summary_large_image">
+	<meta property="twitter:url" content="%s">
+	<meta property="twitter:title" content="%s">
+	<meta property="twitter:description" content="%s">
+	<meta property="twitter:image" content="%s">
+	
+	<!-- 標準meta標籤 -->
+	<meta name="description" content="%s">
+	<title>%s</title>
+	
+	<!-- 自動重定向 -->
+	<meta http-equiv="refresh" content="0;url=%s">
+	<script>window.location.href="%s";</script>
+</head>
+<body>
+	<p>正在跳轉到 <a href="%s">%s</a>...</p>
+</body>
+</html>`, 
+		shortURL, title, description, imageURL,
+		shortURL, title, description, imageURL,
+		description, title,
+		originalURL, originalURL,
+		originalURL, originalURL)
+	
+	return html
+}
+
 // RedirectURL 重定向到原始網址
 func RedirectURL(c *fiber.Ctx) error {
 	shortCode := c.Params("short_code")
@@ -424,6 +518,30 @@ func RedirectURL(c *fiber.Ctx) error {
 		// 不返回錯誤，因為重定向仍然應該工作
 	}
 
+	// 檢測是否為社交媒體爬蟲
+	if isSocialMediaBot(userAgent) {
+		// 獲取base URL
+		baseURL := "https://xsong.us"
+		if envBaseURL := os.Getenv("BASE_URL"); envBaseURL != "" {
+			baseURL = envBaseURL
+		} else {
+			// 從請求頭獲取
+			if host := c.Get("Host"); host != "" {
+				protocol := "https"
+				if c.Get("X-Forwarded-Proto") == "http" {
+					protocol = "http"
+				}
+				baseURL = fmt.Sprintf("%s://%s", protocol, host)
+			}
+		}
+		
+		// 返回包含Open Graph meta標籤的HTML頁面
+		html := generateMetaHTML(shortCode, originalURL, baseURL)
+		c.Set("Content-Type", "text/html; charset=utf-8")
+		return c.SendString(html)
+	}
+
+	// 普通用戶直接302重定向
 	return c.Redirect(originalURL, 302)
 }
 
