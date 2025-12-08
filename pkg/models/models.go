@@ -41,12 +41,14 @@ type ShortenResponse struct {
 
 // StatsResponse 統計資料回應
 type StatsResponse struct {
-	ShortCode   string    `json:"short_code"`
-	OriginalURL string    `json:"original_url"`
-	TotalClicks int       `json:"total_clicks"`
-	CreatedAt   time.Time `json:"created_at"`
-	DeviceStats []DeviceStat `json:"device_stats"`
-	ReferrerStats []ReferrerStat `json:"referrer_stats"`
+	ShortCode        string                `json:"short_code"`
+	OriginalURL      string                `json:"original_url"`
+	TotalClicks      int                   `json:"total_clicks"`
+	CreatedAt        time.Time             `json:"created_at"`
+	DeviceStats      []DeviceStat          `json:"device_stats"`
+	ReferrerStats    []ReferrerStat        `json:"referrer_stats"`
+	IPStats          []IPStat               `json:"ip_stats"`
+	TimeDistribution []TimeDistributionStat `json:"time_distribution"`
 }
 
 // DeviceStat 裝置統計
@@ -59,4 +61,16 @@ type DeviceStat struct {
 type ReferrerStat struct {
 	Referrer string `json:"referrer"`
 	Count    int    `json:"count"`
+}
+
+// IPStat IP地址統計
+type IPStat struct {
+	IPAddress string `json:"ip_address"`
+	Count     int    `json:"count"`
+}
+
+// TimeDistributionStat 時間分布統計
+type TimeDistributionStat struct {
+	Time  string `json:"time"`  // 時間標籤，如 "2024-01-01" 或 "14:00"
+	Count int    `json:"count"` // 該時間段的點擊數
 }

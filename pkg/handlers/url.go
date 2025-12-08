@@ -394,11 +394,23 @@ func GetStats(c *fiber.Ctx) error {
 	}
 
 	// 查詢來源統計
+	// 將空referrer和xsong.us的referrer都歸類為"直接訪問"
 	referrerQuery := `
-		SELECT COALESCE(referrer, 'Direct') as referrer, COUNT(*) as count
+		SELECT 
+			CASE 
+				WHEN referrer IS NULL OR referrer = '' THEN '直接訪問'
+				WHEN referrer LIKE '%xsong.us%' THEN '直接訪問'
+				ELSE referrer
+			END as referrer, 
+			COUNT(*) as count
 		FROM clicks
 		WHERE url_id = $1
-		GROUP BY COALESCE(referrer, 'Direct')
+		GROUP BY 
+			CASE 
+				WHEN referrer IS NULL OR referrer = '' THEN '直接訪問'
+				WHEN referrer LIKE '%xsong.us%' THEN '直接訪問'
+				ELSE referrer
+			END
 		ORDER BY count DESC
 		LIMIT 10
 	`
@@ -423,13 +435,82 @@ func GetStats(c *fiber.Ctx) error {
 		referrerStats = append(referrerStats, stat)
 	}
 
+	// 查詢IP地址統計
+	ipQuery := `
+		SELECT ip_address, COUNT(*) as count
+		FROM clicks
+		WHERE url_id = $1 AND ip_address IS NOT NULL AND ip_address != ''
+		GROUP BY ip_address
+		ORDER BY count DESC
+		LIMIT 20
+	`
+
+	ipRows, err := db.GetDB().Query(context.Background(), ipQuery, urlID)
+	if err != nil {
+		log.Printf("Error querying IP stats: %v", err)
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Database error",
+		})
+	}
+	defer ipRows.Close()
+
+	var ipStats []models.IPStat
+	for ipRows.Next() {
+		var stat models.IPStat
+		err := ipRows.Scan(&stat.IPAddress, &stat.Count)
+		if err != nil {
+			log.Printf("Error scanning IP stat: %v", err)
+			continue
+		}
+		ipStats = append(ipStats, stat)
+	}
+
+	// 查詢點擊時間分布（按小時）
+	timeDistributionQuery := `
+		SELECT 
+			TO_CHAR(clicked_at, 'YYYY-MM-DD HH24:00') as time_hour,
+			COUNT(*) as count
+		FROM clicks
+		WHERE url_id = $1
+		GROUP BY TO_CHAR(clicked_at, 'YYYY-MM-DD HH24:00')
+		ORDER BY time_hour DESC
+		LIMIT 48
+	`
+
+	timeRows, err := db.GetDB().Query(context.Background(), timeDistributionQuery, urlID)
+	if err != nil {
+		log.Printf("Error querying time distribution: %v", err)
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Database error",
+		})
+	}
+	defer timeRows.Close()
+
+	var timeDistribution []models.TimeDistributionStat
+	for timeRows.Next() {
+		var stat models.TimeDistributionStat
+		err := timeRows.Scan(&stat.Time, &stat.Count)
+		if err != nil {
+			log.Printf("Error scanning time distribution stat: %v", err)
+			continue
+		}
+		timeDistribution = append(timeDistribution, stat)
+	}
+
+	// 反轉時間分布順序，讓最早的在前
+	for i, j := 0, len(timeDistribution)-1; i < j; i, j = i+1, j-1 {
+		timeDistribution[i], timeDistribution[j] = timeDistribution[j], timeDistribution[i]
+	}
+
 	response := models.StatsResponse{
-		ShortCode:     shortCode,
-		OriginalURL:   originalURL,
-		TotalClicks:   totalClicks,
-		CreatedAt:     createdAt,
-		DeviceStats:   deviceStats,
-		ReferrerStats: referrerStats,
+		ShortCode:        shortCode,
+		OriginalURL:      originalURL,
+		TotalClicks:      totalClicks,
+		CreatedAt:        createdAt,
+		DeviceStats:      deviceStats,
+		ReferrerStats:    referrerStats,
+		IPStats:          ipStats,
+		TimeDistribution: timeDistribution,
 	}
 
 	return c.JSON(response)

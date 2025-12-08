@@ -96,6 +96,44 @@
           </div>
         </div>
 
+        <!-- IP Stats -->
+        <div v-if="stats.ip_stats && stats.ip_stats.length > 0" class="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
+          <h2 class="text-2xl font-bold text-white mb-6">IP 地址統計</h2>
+          <div class="space-y-4">
+            <div v-for="ip in stats.ip_stats" :key="ip.ip_address" class="bg-white/5 rounded-xl p-6">
+              <div class="flex justify-between items-center mb-3">
+                <span class="text-gray-300 font-mono font-medium">{{ ip.ip_address }}</span>
+                <span class="text-white font-semibold text-lg">{{ ip.count }}</span>
+              </div>
+              <div class="bg-white/10 rounded-full h-3">
+                <div 
+                  class="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-500" 
+                  :style="{ width: `${(ip.count / stats.total_clicks) * 100}%` }"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Time Distribution -->
+        <div v-if="stats.time_distribution && stats.time_distribution.length > 0" class="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
+          <h2 class="text-2xl font-bold text-white mb-6">點擊時間分布</h2>
+          <div class="space-y-3">
+            <div v-for="timeStat in stats.time_distribution" :key="timeStat.time" class="bg-white/5 rounded-xl p-4">
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-gray-300 font-medium">{{ formatTime(timeStat.time) }}</span>
+                <span class="text-white font-semibold">{{ timeStat.count }}</span>
+              </div>
+              <div class="bg-white/10 rounded-full h-2">
+                <div 
+                  class="bg-gradient-to-r from-yellow-500 to-orange-500 h-2 rounded-full transition-all duration-500" 
+                  :style="{ width: `${(timeStat.count / getMaxTimeCount()) * 100}%` }"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Referrer Stats -->
         <div v-if="stats.referrer_stats && stats.referrer_stats.length > 0" class="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
           <h2 class="text-2xl font-bold text-white mb-6">來源統計</h2>
@@ -116,7 +154,7 @@
         </div>
 
         <!-- Empty State -->
-        <div v-if="!stats.device_stats?.length && !stats.referrer_stats?.length" class="text-center py-20">
+        <div v-if="!stats.device_stats?.length && !stats.referrer_stats?.length && !stats.ip_stats?.length && !stats.time_distribution?.length" class="text-center py-20">
           <div class="bg-white/5 rounded-2xl p-8 max-w-md mx-auto">
             <p class="text-gray-300">還沒有點擊數據</p>
             <p class="text-gray-400 text-sm mt-2">分享你的短網址來開始收集數據</p>
@@ -150,6 +188,16 @@ interface ReferrerStat {
   count: number
 }
 
+interface IPStat {
+  ip_address: string
+  count: number
+}
+
+interface TimeDistributionStat {
+  time: string
+  count: number
+}
+
 interface Stats {
   short_code: string
   original_url: string
@@ -157,6 +205,8 @@ interface Stats {
   created_at: string
   device_stats: DeviceStat[]
   referrer_stats: ReferrerStat[]
+  ip_stats?: IPStat[]
+  time_distribution?: TimeDistributionStat[]
 }
 
 const route = useRoute()
@@ -210,5 +260,25 @@ const getDeviceName = (userAgent: string): string => {
 // 生成短網址
 const getShortUrl = (shortCode: string): string => {
   return `https://xsong.us/url/${shortCode}`
+}
+
+// 格式化時間顯示
+const formatTime = (timeStr: string): string => {
+  try {
+    // 格式: "2024-01-01 14:00"
+    const [date, hour] = timeStr.split(' ')
+    const [year, month, day] = date.split('-')
+    return `${year}-${month}-${day} ${hour}:00`
+  } catch {
+    return timeStr
+  }
+}
+
+// 獲取時間分布中的最大點擊數（用於計算百分比）
+const getMaxTimeCount = (): number => {
+  if (!stats.value?.time_distribution || stats.value.time_distribution.length === 0) {
+    return 1
+  }
+  return Math.max(...stats.value.time_distribution.map(t => t.count))
 }
 </script>
