@@ -465,14 +465,15 @@ func GetStats(c *fiber.Ctx) error {
 		ipStats = append(ipStats, stat)
 	}
 
-	// 查詢點擊時間分布（按小時）
+	// 查詢點擊時間分布（按小時，使用東八區時區）
+	// 將TIMESTAMP轉換為帶時區的時間戳（假設存儲為UTC），然後轉換為東八區
 	timeDistributionQuery := `
 		SELECT 
-			TO_CHAR(clicked_at, 'YYYY-MM-DD HH24:00') as time_hour,
+			TO_CHAR((clicked_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD HH24:00') as time_hour,
 			COUNT(*) as count
 		FROM clicks
 		WHERE url_id = $1
-		GROUP BY TO_CHAR(clicked_at, 'YYYY-MM-DD HH24:00')
+		GROUP BY TO_CHAR((clicked_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD HH24:00')
 		ORDER BY time_hour DESC
 		LIMIT 48
 	`
