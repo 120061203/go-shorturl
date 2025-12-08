@@ -48,6 +48,7 @@ func main() {
 	api := app.Group("/api")
 	api.Post("/shorten", handlers.ShortenURL)
 	api.Get("/stats/:short_code", handlers.GetStats)
+	api.Get("/clicks/:short_code", handlers.GetClickList)
 
 	// 重定向路由 (必須放在最後，因為它會匹配所有路徑)
 	app.Get("/shorturl/:short_code", handlers.RedirectURL)

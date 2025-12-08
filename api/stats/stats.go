@@ -47,6 +47,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	// API 路由
 	api := app.Group("/api")
 	api.Get("/stats/:short_code", handlers.GetStats)
+	api.Get("/clicks/:short_code", handlers.GetClickList)
 
 	// 處理請求
 	adaptor.FiberApp(app).ServeHTTP(w, r)

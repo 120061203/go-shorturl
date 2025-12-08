@@ -53,6 +53,72 @@
 
       <!-- Stats Content -->
       <div v-else-if="stats" class="space-y-8">
+        <!-- 視圖切換按鈕 -->
+        <div class="flex justify-end gap-4 mb-6">
+          <button
+            @click="switchView('chart')"
+            :class="[
+              'px-6 py-2 rounded-lg font-medium transition-all duration-300',
+              viewMode === 'chart'
+                ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
+                : 'bg-white/10 text-gray-300 hover:bg-white/20'
+            ]"
+          >
+            圖表視圖
+          </button>
+          <button
+            @click="switchView('table')"
+            :class="[
+              'px-6 py-2 rounded-lg font-medium transition-all duration-300',
+              viewMode === 'table'
+                ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
+                : 'bg-white/10 text-gray-300 hover:bg-white/20'
+            ]"
+          >
+            表格視圖
+          </button>
+        </div>
+
+        <!-- 表格視圖 -->
+        <div v-if="viewMode === 'table'" class="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
+          <h2 class="text-2xl font-bold text-white mb-6">點擊記錄列表</h2>
+          <div v-if="loading" class="text-center py-10">
+            <p class="text-gray-300">載入中...</p>
+          </div>
+          <div v-else-if="clickList && clickList.clicks && clickList.clicks.length > 0" class="overflow-x-auto">
+            <table class="w-full text-left">
+              <thead>
+                <tr class="border-b border-white/20">
+                  <th class="pb-4 text-gray-300 font-semibold">時間</th>
+                  <th class="pb-4 text-gray-300 font-semibold">IP地址</th>
+                  <th class="pb-4 text-gray-300 font-semibold">地點</th>
+                  <th class="pb-4 text-gray-300 font-semibold">裝置</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="(click, index) in clickList.clicks"
+                  :key="index"
+                  class="border-b border-white/10 hover:bg-white/5 transition-colors"
+                >
+                  <td class="py-4 text-white font-mono text-sm">{{ formatDateTime(click.clicked_at) }}</td>
+                  <td class="py-4 text-gray-300 font-mono text-sm">{{ click.ip_address || '未知' }}</td>
+                  <td class="py-4 text-gray-300">{{ click.location || '未知' }}</td>
+                  <td class="py-4 text-gray-300">{{ click.device_type || '未知' }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="mt-6 text-gray-400 text-sm text-center">
+              共 {{ clickList.total }} 筆記錄
+            </div>
+          </div>
+          <div v-else class="text-center py-10">
+            <p class="text-gray-300">沒有點擊記錄</p>
+          </div>
+        </div>
+
+        <!-- 圖表視圖 -->
+        <div v-if="viewMode === 'chart'" class="space-y-8">
         <!-- URL Info -->
         <div class="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
           <h2 class="text-2xl font-bold text-white mb-6">網址資訊</h2>
@@ -236,6 +302,7 @@
             <p class="text-gray-400 text-sm mt-2">分享你的短網址來開始收集數據</p>
           </div>
         </div>
+        </div>
       </div>
 
       <!-- Initial State -->
@@ -303,11 +370,26 @@ interface Stats {
   os_stats?: OSStat[]
 }
 
+interface ClickDetail {
+  clicked_at: string
+  ip_address: string
+  location: string
+  device_type: string
+}
+
+interface ClickList {
+  short_code: string
+  clicks: ClickDetail[]
+  total: number
+}
+
 const route = useRoute()
 const stats = ref<Stats | null>(null)
+const clickList = ref<ClickList | null>(null)
 const loading = ref(false)
 const error = ref('')
 const shortCode = ref('')
+const viewMode = ref<'chart' | 'table'>('chart')
 
 // 從路由參數獲取短碼
 onMounted(() => {
@@ -338,6 +420,53 @@ const fetchStats = async () => {
     stats.value = null
   } finally {
     loading.value = false
+  }
+}
+
+const fetchClickList = async () => {
+  if (!shortCode.value) {
+    error.value = '請輸入短碼'
+    return
+  }
+
+  loading.value = true
+  error.value = ''
+
+  try {
+    const response = await api.get(`/api/clicks/${shortCode.value}`)
+    clickList.value = response.data
+  } catch (err: any) {
+    if (err.response?.data?.error) {
+      error.value = err.response.data.error
+    } else {
+      error.value = '獲取點擊列表時發生錯誤'
+    }
+    clickList.value = null
+  } finally {
+    loading.value = false
+  }
+}
+
+const switchView = async (mode: 'chart' | 'table') => {
+  viewMode.value = mode
+  if (mode === 'table' && !clickList.value) {
+    await fetchClickList()
+  }
+}
+
+// 格式化時間
+const formatDateTime = (dateStr: string): string => {
+  try {
+    const date = new Date(dateStr)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+    const seconds = String(date.getSeconds()).padStart(2, '0')
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+  } catch {
+    return dateStr
   }
 }
 

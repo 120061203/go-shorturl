@@ -95,3 +95,18 @@ type OSStat struct {
 	OS    string `json:"os"`    // 操作系統，如 "macOS 10.15", "iOS 18.6", "Android 14"
 	Count int    `json:"count"` // 該操作系統的點擊數
 }
+
+// ClickDetail 點擊詳情
+type ClickDetail struct {
+	ClickedAt  time.Time `json:"clicked_at"`  // 點擊時間
+	IPAddress  string    `json:"ip_address"`  // IP地址
+	Location   string    `json:"location"`     // 地理位置
+	DeviceType string    `json:"device_type"` // 設備類型
+}
+
+// ClickListResponse 點擊列表回應
+type ClickListResponse struct {
+	ShortCode string       `json:"short_code"`
+	Clicks    []ClickDetail `json:"clicks"`
+	Total     int          `json:"total"`
+}

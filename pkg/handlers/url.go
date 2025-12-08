@@ -1173,3 +1173,72 @@ func GetStats(c *fiber.Ctx) error {
 
 	return c.JSON(response)
 }
+
+// GetClickList 取得點擊列表（詳細記錄）
+func GetClickList(c *fiber.Ctx) error {
+	shortCode := c.Params("short_code")
+	if shortCode == "" {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Short code is required",
+		})
+	}
+
+	// 查詢短網址ID
+	urlQuery := "SELECT id FROM urls WHERE short_code = $1"
+	var urlID uuid.UUID
+
+	err := db.GetDB().QueryRow(context.Background(), urlQuery, shortCode).Scan(&urlID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return c.Status(404).JSON(fiber.Map{
+				"error": "Short URL not found",
+			})
+		}
+		log.Printf("Error querying URL: %v", err)
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Database error",
+		})
+	}
+
+	// 查詢點擊列表
+	// 轉換時間為東八區並格式化
+	clickListQuery := `
+		SELECT 
+			(clicked_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Shanghai' as clicked_at,
+			COALESCE(ip_address, '') as ip_address,
+			COALESCE(location, '') as location,
+			COALESCE(device_type, '未知') as device_type
+		FROM clicks
+		WHERE url_id = $1
+		ORDER BY clicked_at DESC
+		LIMIT 1000
+	`
+
+	rows, err := db.GetDB().Query(context.Background(), clickListQuery, urlID)
+	if err != nil {
+		log.Printf("Error querying click list: %v", err)
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Database error",
+		})
+	}
+	defer rows.Close()
+
+	var clicks []models.ClickDetail
+	for rows.Next() {
+		var click models.ClickDetail
+		err := rows.Scan(&click.ClickedAt, &click.IPAddress, &click.Location, &click.DeviceType)
+		if err != nil {
+			log.Printf("Error scanning click detail: %v", err)
+			continue
+		}
+		clicks = append(clicks, click)
+	}
+
+	response := models.ClickListResponse{
+		ShortCode: shortCode,
+		Clicks:    clicks,
+		Total:     len(clicks),
+	}
+
+	return c.JSON(response)
+}
