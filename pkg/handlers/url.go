@@ -243,7 +243,7 @@ func getRealUserAgent(c *fiber.Ctx) string {
 	return ua
 }
 
-// parseDeviceType 從 User-Agent 解析設備類型
+// parseDeviceType 從 User-Agent 解析設備類型（詳細分類）
 func parseDeviceType(userAgent string) string {
 	if userAgent == "" {
 		return "未知"
@@ -251,22 +251,19 @@ func parseDeviceType(userAgent string) string {
 	
 	ua := strings.ToLower(userAgent)
 	
-	// 優先檢查是否為平板（因為iPad的User-Agent也包含iPhone）
+	// 優先檢查是否為iPad（因為iPad的User-Agent也包含iPhone）
 	if strings.Contains(ua, "ipad") {
-		return "平板"
+		return "iPad"
 	}
 	
-	// 檢查是否為平板
-	if strings.Contains(ua, "tablet") || 
-		strings.Contains(ua, "playbook") ||
-		strings.Contains(ua, "kindle") {
-		return "平板"
+	// 檢查是否為iPhone
+	if strings.Contains(ua, "iphone") {
+		return "iPhone"
 	}
 	
-	// 檢查是否為移動設備（手機）
-	if strings.Contains(ua, "iphone") ||
-		strings.Contains(ua, "ipod") {
-		return "手機"
+	// 檢查是否為iPod
+	if strings.Contains(ua, "ipod") {
+		return "iPod"
 	}
 	
 	// Android設備
@@ -275,21 +272,49 @@ func parseDeviceType(userAgent string) string {
 		if strings.Contains(ua, "tablet") || 
 			strings.Contains(ua, "pad") ||
 			!strings.Contains(ua, "mobile") {
-			// 檢查屏幕尺寸（如果User-Agent包含）
-			return "平板"
+			return "Android 平板"
 		}
-		return "手機"
+		return "Android 手機"
+	}
+	
+	// 其他平板設備
+	if strings.Contains(ua, "tablet") || 
+		strings.Contains(ua, "playbook") ||
+		strings.Contains(ua, "kindle") {
+		return "平板"
+	}
+	
+	// macOS
+	if strings.Contains(ua, "macintosh") || 
+		strings.Contains(ua, "mac os x") || 
+		strings.Contains(ua, "macos") {
+		return "Mac"
+	}
+	
+	// Windows
+	if strings.Contains(ua, "windows") {
+		return "Windows PC"
+	}
+	
+	// Linux
+	if strings.Contains(ua, "linux") && !strings.Contains(ua, "android") {
+		return "Linux"
+	}
+	
+	// Chrome OS
+	if strings.Contains(ua, "cros") {
+		return "Chrome OS"
 	}
 	
 	// 其他移動設備
 	if strings.Contains(ua, "mobile") || 
 		strings.Contains(ua, "blackberry") ||
 		strings.Contains(ua, "windows phone") {
-		return "手機"
+		return "其他手機"
 	}
 	
 	// 默認為電腦
-	return "電腦"
+	return "其他電腦"
 }
 
 // parseOS 從 User-Agent 解析操作系統

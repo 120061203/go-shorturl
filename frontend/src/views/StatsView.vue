@@ -119,23 +119,35 @@
         <div v-if="stats.time_distribution && stats.time_distribution.length > 0" class="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
           <h2 class="text-2xl font-bold text-white mb-6">點擊時間分布</h2>
           <div class="overflow-x-auto">
-            <div class="flex items-end justify-start gap-2 h-64 pb-12">
-              <div 
-                v-for="timeStat in stats.time_distribution" 
-                :key="timeStat.time" 
-                class="flex flex-col items-center group min-w-[40px] h-full"
-              >
-                <div class="w-full flex flex-col items-end justify-end flex-1 mb-2">
-                  <span class="text-white font-semibold text-xs mb-1">{{ timeStat.count }}</span>
-                  <div 
-                    class="w-full bg-gradient-to-t from-yellow-500 to-orange-500 rounded-t-lg transition-all duration-500 hover:from-yellow-400 hover:to-orange-400 group-hover:opacity-90 cursor-pointer"
-                    :style="{ height: `${Math.max((timeStat.count / getMaxTimeCount()) * 240, 8)}px` }"
-                    :title="`${formatTime(timeStat.time)}: ${timeStat.count}次點擊`"
-                  ></div>
+            <div class="relative" style="height: 320px;">
+              <!-- 柱狀圖容器 - 固定在底部 -->
+              <div class="absolute bottom-0 left-0 right-0 flex items-end justify-start gap-2" style="height: 250px; padding-bottom: 60px;">
+                <div 
+                  v-for="timeStat in stats.time_distribution" 
+                  :key="timeStat.time" 
+                  class="flex flex-col items-center justify-end group min-w-[40px] h-full"
+                >
+                  <div class="w-full flex flex-col items-center justify-end">
+                    <span class="text-white font-semibold text-xs mb-1">{{ timeStat.count }}</span>
+                    <div 
+                      class="w-full bg-gradient-to-t from-yellow-500 to-orange-500 rounded-t-lg transition-all duration-500 hover:from-yellow-400 hover:to-orange-400 group-hover:opacity-90 cursor-pointer"
+                      :style="{ height: `${Math.max((timeStat.count / getMaxTimeCount()) * 240, 8)}px` }"
+                      :title="`${formatTime(timeStat.time)}: ${timeStat.count}次點擊`"
+                    ></div>
+                  </div>
                 </div>
-                <span class="text-gray-400 text-xs mt-2 text-center leading-tight whitespace-nowrap" style="transform: rotate(-45deg); transform-origin: center;">
-                  {{ formatTimeLabel(timeStat.time) }}
-                </span>
+              </div>
+              <!-- 時間標籤 - 固定在底部 -->
+              <div class="absolute bottom-0 left-0 right-0 flex items-center justify-start gap-2" style="height: 60px;">
+                <div 
+                  v-for="timeStat in stats.time_distribution" 
+                  :key="timeStat.time" 
+                  class="flex items-center justify-center min-w-[40px] h-full"
+                >
+                  <span class="text-gray-400 text-xs text-center leading-tight whitespace-nowrap" style="transform: rotate(-45deg); transform-origin: center;">
+                    {{ formatTimeLabel(timeStat.time) }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
