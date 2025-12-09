@@ -1,5 +1,10 @@
 <script setup lang="ts">
 // xsong 個人短網址服務
+
+// 重新整理頁面
+const reloadPage = () => {
+  window.location.reload()
+}
 </script>
 
 <template>
@@ -16,7 +21,7 @@
               <h1 class="ml-3 text-2xl font-bold text-white">xsong</h1>
             </a>
           </div>
-          <nav class="hidden md:flex space-x-6">
+          <nav class="hidden md:flex space-x-6 items-center">
             <router-link
               to="/"
               class="text-gray-300 hover:text-white px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-white/10"
@@ -31,6 +36,16 @@
             >
               統計
             </router-link>
+            <button
+              @click="reloadPage"
+              class="text-gray-300 hover:text-white px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-white/10 flex items-center gap-2"
+              title="重新整理頁面"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+              </svg>
+              重新整理
+            </button>
           </nav>
         </div>
       </div>
