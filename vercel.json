@@ -31,6 +31,10 @@
       "destination": "/api/stats/stats.go"
     },
     {
+      "source": "/api/clicks/:shortCode",
+      "destination": "/api/stats/stats.go"
+    },
+    {
       "source": "/url/:shortCode",
       "destination": "/api/redirect/redirect.go"
     },
