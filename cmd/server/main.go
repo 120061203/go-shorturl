@@ -67,8 +67,9 @@ func main() {
 		return c.SendFile("./frontend/dist/index.html")
 	})
 	app.Get("/", func(c *fiber.Ctx) error {
-		// 檢查是否為 API 請求
-		if c.Path() == "/" && c.Method() == "GET" && c.Get("Accept") != "" && !c.Accepts("text/html") {
+		// 檢查是否為 API 請求（不接受 text/html 的請求返回 JSON）
+		acceptHeader := c.Get("Accept")
+		if acceptHeader != "" && c.Accepts("text/html") == "" {
 			return c.JSON(fiber.Map{
 				"message": "Short URL Service",
 				"version": "1.0.0",
