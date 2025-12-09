@@ -1,7 +1,14 @@
 {
-  "devDependencies": {
-    "autoprefixer": "^10.4.21",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^3.4.14"
+  "name": "go-shorturl",
+  "version": "1.0.0",
+  "description": "Short URL service with Go backend and Vue frontend",
+  "main": "server",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build && cd .. && go mod download && go build -o server ./cmd/server",
+    "start": "./server"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0",
+    "go": ">=1.21"
   }
 }

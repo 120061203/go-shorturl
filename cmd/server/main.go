@@ -44,6 +44,10 @@ func main() {
 		AllowHeaders: "Origin,Content-Type,Accept,Authorization",
 	}))
 
+	// 提供靜態文件（前端構建後的文件）
+	app.Static("/assets", "./frontend/dist/assets")
+	app.Static("/favicon.ico", "./frontend/dist/favicon.ico")
+
 	// API 路由
 	api := app.Group("/api")
 	api.Post("/shorten", handlers.ShortenURL)
@@ -62,18 +66,25 @@ func main() {
 		})
 	})
 
-	// 根路徑
+	// SPA 路由 - 提供前端 index.html（必須放在短網址路由之前）
+	app.Get("/stats", func(c *fiber.Ctx) error {
+		return c.SendFile("./frontend/dist/index.html")
+	})
 	app.Get("/", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"message": "Short URL Service",
-			"version": "1.0.0",
-			"endpoints": fiber.Map{
-				"POST /api/shorten":          "Create a short URL",
-				"GET /:short_code":           "Redirect to original URL",
-				"GET /api/stats/:short_code": "Get URL statistics",
-				"GET /health":                "Health check",
-			},
-		})
+		// 檢查是否為 API 請求
+		if c.Path() == "/" && c.Method() == "GET" && c.Get("Accept") != "" && !c.Accepts("text/html") {
+			return c.JSON(fiber.Map{
+				"message": "Short URL Service",
+				"version": "1.0.0",
+				"endpoints": fiber.Map{
+					"POST /api/shorten":          "Create a short URL",
+					"GET /:short_code":           "Redirect to original URL",
+					"GET /api/stats/:short_code": "Get URL statistics",
+					"GET /health":                "Health check",
+				},
+			})
+		}
+		return c.SendFile("./frontend/dist/index.html")
 	})
 
 	// 啟動伺服器
