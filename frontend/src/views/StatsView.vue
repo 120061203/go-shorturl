@@ -442,10 +442,19 @@ const fetchStats = async () => {
 
   loading.value = true
   error.value = ''
+  // 清空舊數據，確保每次查詢都是新的結果
+  stats.value = null
+  clickList.value = null
 
   try {
     const response = await api.get(`/api/stats/${shortCode.value}`)
-    stats.value = response.data
+    // 驗證返回的數據是否匹配當前查詢的短碼
+    if (response.data && response.data.short_code === shortCode.value) {
+      stats.value = response.data
+    } else {
+      error.value = '返回的數據不匹配，請重新查詢'
+      stats.value = null
+    }
   } catch (err: any) {
     if (err.response?.data?.error) {
       error.value = err.response.data.error
@@ -469,7 +478,13 @@ const fetchClickList = async () => {
 
   try {
     const response = await api.get(`/api/clicks/${shortCode.value}`)
-    clickList.value = response.data
+    // 驗證返回的數據是否匹配當前查詢的短碼
+    if (response.data && response.data.short_code === shortCode.value) {
+      clickList.value = response.data
+    } else {
+      error.value = '返回的數據不匹配，請重新查詢'
+      clickList.value = null
+    }
   } catch (err: any) {
     if (err.response?.data?.error) {
       error.value = err.response.data.error
