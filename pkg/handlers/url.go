@@ -882,6 +882,8 @@ func GetStats(c *fiber.Ctx) error {
 		})
 	}
 
+	log.Printf("GetStats called for short_code: %s", shortCode)
+
 	// 查詢短網址基本資訊
 	urlQuery := "SELECT id, original_url, created_at FROM urls WHERE short_code = $1"
 	var urlID uuid.UUID
@@ -1236,6 +1238,7 @@ func GetStats(c *fiber.Ctx) error {
 		OSStats:          osStats,
 	}
 
+	log.Printf("GetStats returning data for short_code: %s, total_clicks: %d", shortCode, totalClicks)
 	return c.JSON(response)
 }
 
@@ -1247,6 +1250,8 @@ func GetClickList(c *fiber.Ctx) error {
 			"error": "Short code is required",
 		})
 	}
+
+	log.Printf("GetClickList called for short_code: %s", shortCode)
 
 	// 查詢短網址ID
 	urlQuery := "SELECT id FROM urls WHERE short_code = $1"
@@ -1313,5 +1318,6 @@ func GetClickList(c *fiber.Ctx) error {
 		Total:     len(clicks),
 	}
 
+	log.Printf("GetClickList returning data for short_code: %s, total: %d", shortCode, len(clicks))
 	return c.JSON(response)
 }
