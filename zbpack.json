@@ -1,0 +1,5 @@
+{
+  "build_command": "cd frontend && npm install && npm run build && cd .. && go mod download && go build -o server ./cmd/server",
+  "start_command": "./server"
+}
+
