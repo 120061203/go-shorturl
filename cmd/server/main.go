@@ -54,10 +54,6 @@ func main() {
 	api.Get("/stats/:short_code", handlers.GetStats)
 	api.Get("/clicks/:short_code", handlers.GetClickList)
 
-	// 重定向路由 (必須放在最後，因為它會匹配所有路徑)
-	app.Get("/shorturl/:short_code", handlers.RedirectURL)
-	app.Get("/:short_code", handlers.RedirectURL) // 保持向後兼容
-
 	// 健康檢查端點
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
@@ -86,6 +82,10 @@ func main() {
 		}
 		return c.SendFile("./frontend/dist/index.html")
 	})
+
+	// 重定向路由 (必須放在最後，因為它會匹配所有路徑)
+	app.Get("/shorturl/:short_code", handlers.RedirectURL)
+	app.Get("/:short_code", handlers.RedirectURL) // 保持向後兼容
 
 	// 啟動伺服器
 	port := os.Getenv("PORT")
