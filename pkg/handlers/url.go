@@ -1201,10 +1201,10 @@ func GetClickList(c *fiber.Ctx) error {
 	}
 
 	// 查詢點擊列表
-	// 轉換時間為東八區並格式化
+	// 轉換時間為東八區並格式化為字符串
 	clickListQuery := `
 		SELECT 
-			(clicked_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Shanghai' as clicked_at,
+			TO_CHAR((clicked_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD HH24:MI:SS') as clicked_at,
 			COALESCE(ip_address, '') as ip_address,
 			COALESCE(location, '') as location,
 			COALESCE(device_type, '未知') as device_type

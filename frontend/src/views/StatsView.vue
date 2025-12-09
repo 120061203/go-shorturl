@@ -460,20 +460,10 @@ const switchView = async (mode: 'chart' | 'table') => {
   }
 }
 
-// 格式化時間
+// 格式化時間（後端已經返回東八區格式的字符串，這裡直接返回）
 const formatDateTime = (dateStr: string): string => {
-  try {
-    const date = new Date(dateStr)
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    const hours = String(date.getHours()).padStart(2, '0')
-    const minutes = String(date.getMinutes()).padStart(2, '0')
-    const seconds = String(date.getSeconds()).padStart(2, '0')
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
-  } catch {
-    return dateStr
-  }
+  // 後端已經返回東八區格式的字符串（YYYY-MM-DD HH24:MI:SS），直接返回
+  return dateStr || '未知'
 }
 
 // 解析裝置名稱

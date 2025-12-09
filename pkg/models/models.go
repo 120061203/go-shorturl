@@ -98,10 +98,10 @@ type OSStat struct {
 
 // ClickDetail 點擊詳情
 type ClickDetail struct {
-	ClickedAt  time.Time `json:"clicked_at"`  // 點擊時間
-	IPAddress  string    `json:"ip_address"`  // IP地址
-	Location   string    `json:"location"`     // 地理位置
-	DeviceType string    `json:"device_type"` // 設備類型
+	ClickedAt  string `json:"clicked_at"`  // 點擊時間（東八區格式字符串）
+	IPAddress  string `json:"ip_address"`   // IP地址
+	Location   string `json:"location"`     // 地理位置
+	DeviceType string `json:"device_type"` // 設備類型
 }
 
 // ClickListResponse 點擊列表回應
