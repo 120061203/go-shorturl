@@ -83,7 +83,13 @@
         <div v-if="viewMode === 'table'" class="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
           <h2 class="text-2xl font-bold text-white mb-6">點擊記錄列表</h2>
           <div v-if="loading" class="text-center py-10">
-            <p class="text-gray-300">載入中...</p>
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto"></div>
+            <p class="text-gray-300 mt-4">載入中...</p>
+          </div>
+          <div v-else-if="error && viewMode === 'table'" class="text-center py-10">
+            <div class="bg-red-500/20 border border-red-500/30 rounded-xl p-6 max-w-md mx-auto">
+              <p class="text-red-300">{{ error }}</p>
+            </div>
           </div>
           <div v-else-if="clickList && clickList.clicks && clickList.clicks.length > 0" class="overflow-x-auto">
             <table class="w-full text-left">
