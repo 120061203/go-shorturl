@@ -98,10 +98,16 @@ type OSStat struct {
 
 // ClickDetail 點擊詳情
 type ClickDetail struct {
-	ClickedAt  string `json:"clicked_at"`  // 點擊時間（東八區格式字符串）
-	IPAddress  string `json:"ip_address"`   // IP地址
-	Location   string `json:"location"`     // 地理位置
-	DeviceType string `json:"device_type"` // 設備類型
+	ClickedAt     string `json:"clicked_at"`      // 點擊時間（東八區格式字符串）
+	IPAddress     string `json:"ip_address"`      // IP地址
+	Location      string `json:"location"`        // 地理位置（簡化版本）
+	DeviceType    string `json:"device_type"`     // 設備類型
+	LocationISP   string `json:"location_isp"`    // 網際網路服務供應商
+	LocationHost  string `json:"location_host"`    // 主機名稱
+	LocationCountry string `json:"location_country"` // 國家
+	LocationRegion string `json:"location_region"`   // 地區／州
+	LocationCity   string `json:"location_city"`     // 城市
+	LocationZip    string `json:"location_zip"`      // 郵遞區號
 }
 
 // ClickListResponse 點擊列表回應

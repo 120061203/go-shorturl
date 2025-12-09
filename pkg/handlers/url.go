@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -384,15 +385,35 @@ func parseOS(userAgent string) string {
 
 // IPLocation IP地理位置信息
 type IPLocation struct {
+	Status      string `json:"status"`
 	Country     string `json:"country"`
 	Region      string `json:"regionName"`
 	City        string `json:"city"`
 	ISP         string `json:"isp"`
 	CountryCode string `json:"countryCode"`
+	Query       string `json:"query"`
+	Zip         string `json:"zip"`
+	Org         string `json:"org"`
+	AS          string `json:"as"`
+}
+
+// LocationDetails 詳細地理位置信息
+type LocationDetails struct {
+	Location   string // 簡化版本（用於向後兼容）
+	ISP        string
+	Hostname   string
+	Country    string
+	Region     string
+	City       string
+	Zip        string
 }
 
 // getIPLocation 查詢IP地理位置（使用ip-api.com免費API）
-func getIPLocation(ipAddress string) string {
+func getIPLocation(ipAddress string) LocationDetails {
+	result := LocationDetails{
+		Location: "未知",
+	}
+
 	// 跳過本地IP和私有IP
 	if ipAddress == "" ||
 		strings.HasPrefix(ipAddress, "127.") ||
@@ -401,11 +422,13 @@ func getIPLocation(ipAddress string) string {
 		strings.HasPrefix(ipAddress, "172.") ||
 		ipAddress == "::1" ||
 		ipAddress == "localhost" {
-		return "本地"
+		result.Location = "本地"
+		return result
 	}
 
 	// 使用ip-api.com免費API（無需API key，但有速率限制）
-	apiURL := fmt.Sprintf("http://ip-api.com/json/%s?fields=status,country,regionName,city,isp,countryCode&lang=zh-CN", ipAddress)
+	// 添加更多字段：zip, org, as (用於hostname)
+	apiURL := fmt.Sprintf("http://ip-api.com/json/%s?fields=status,country,regionName,city,isp,countryCode,zip,org,as,query&lang=zh-CN", ipAddress)
 
 	client := &http.Client{
 		Timeout: 2 * time.Second, // 設置超時，避免阻塞
@@ -414,27 +437,61 @@ func getIPLocation(ipAddress string) string {
 	resp, err := client.Get(apiURL)
 	if err != nil {
 		log.Printf("Error fetching IP location: %v", err)
-		return "未知"
+		return result
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "未知"
+		return result
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Printf("Error reading IP location response: %v", err)
-		return "未知"
+		return result
 	}
 
 	var location IPLocation
 	if err := json.Unmarshal(body, &location); err != nil {
 		log.Printf("Error parsing IP location: %v", err)
-		return "未知"
+		return result
 	}
 
-	// 構建地理位置字符串
+	// 檢查API返回狀態
+	if location.Status != "success" {
+		return result
+	}
+
+	// 填充詳細信息
+	result.ISP = location.ISP
+	result.Country = location.Country
+	result.Region = location.Region
+	result.City = location.City
+	result.Zip = location.Zip
+
+	// 嘗試通過反向DNS查詢獲取hostname
+	// 注意：這可能會增加查詢時間，所以設置較短的超時
+	hostnameChan := make(chan string, 1)
+	go func() {
+		hostnames, err := net.LookupAddr(ipAddress)
+		if err == nil && len(hostnames) > 0 {
+			hostnameChan <- hostnames[0]
+		} else {
+			hostnameChan <- ""
+		}
+	}()
+	
+	select {
+	case hostname := <-hostnameChan:
+		if hostname != "" {
+			// 移除末尾的點
+			result.Hostname = strings.TrimSuffix(hostname, ".")
+		}
+	case <-time.After(500 * time.Millisecond):
+		// 超時，不設置hostname
+	}
+
+	// 構建地理位置字符串（用於向後兼容）
 	parts := []string{}
 	if location.Country != "" {
 		parts = append(parts, location.Country)
@@ -447,10 +504,12 @@ func getIPLocation(ipAddress string) string {
 	}
 
 	if len(parts) > 0 {
-		return strings.Join(parts, ", ")
+		result.Location = strings.Join(parts, ", ")
+	} else {
+		result.Location = "未知"
 	}
 
-	return "未知"
+	return result
 }
 
 // getRealReferrer 從 HTTP 頭中獲取真實 Referrer
@@ -735,8 +794,9 @@ func RedirectURL(c *fiber.Ctx) error {
 
 	// 記錄點擊 - 使用真實的客戶端信息
 	clickQuery := `
-		INSERT INTO clicks (id, url_id, clicked_at, ip_address, user_agent, referrer, device_type, location)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO clicks (id, url_id, clicked_at, ip_address, user_agent, referrer, device_type, location, 
+			location_isp, location_hostname, location_country, location_region, location_city, location_zip)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 	`
 
 	clickID := uuid.New()
@@ -745,18 +805,23 @@ func RedirectURL(c *fiber.Ctx) error {
 	userAgent := getRealUserAgent(c)         // 使用真實User-Agent
 	referrer := getRealReferrer(c)           // 使用真實Referrer
 	deviceType := parseDeviceType(userAgent) // 解析設備類型
-	location := getIPLocation(ipAddress)     // 查詢地理位置
+	locationDetails := getIPLocation(ipAddress) // 查詢詳細地理位置
 
 	// 記錄所有相關的HTTP頭以便調試（開發環境）
 	if os.Getenv("DEBUG") == "true" {
 		log.Printf("Click recorded - IP: %s, User-Agent: %s, Referrer: %s, Device: %s, Location: %s",
-			ipAddress, userAgent, referrer, deviceType, location)
+			ipAddress, userAgent, referrer, deviceType, locationDetails.Location)
+		log.Printf("Location Details - ISP: %s, Country: %s, Region: %s, City: %s, Zip: %s, Hostname: %s",
+			locationDetails.ISP, locationDetails.Country, locationDetails.Region, locationDetails.City, locationDetails.Zip, locationDetails.Hostname)
 		log.Printf("HTTP Headers - X-Forwarded-For: %s, X-Real-IP: %s, X-Forwarded-User-Agent: %s",
 			c.Get("X-Forwarded-For"), c.Get("X-Real-IP"), c.Get("X-Forwarded-User-Agent"))
 	}
 
 	// 記錄點擊（地理位置查詢已設置超時，不會長時間阻塞）
-	_, err = db.GetDB().Exec(context.Background(), clickQuery, clickID, urlID, clickedAt, ipAddress, userAgent, referrer, deviceType, location)
+	_, err = db.GetDB().Exec(context.Background(), clickQuery, 
+		clickID, urlID, clickedAt, ipAddress, userAgent, referrer, deviceType, locationDetails.Location,
+		locationDetails.ISP, locationDetails.Hostname, locationDetails.Country, locationDetails.Region, 
+		locationDetails.City, locationDetails.Zip)
 	if err != nil {
 		log.Printf("Error recording click for short_code %s: %v", shortCode, err)
 		// 不返回錯誤，因為重定向仍然應該工作
@@ -1207,7 +1272,13 @@ func GetClickList(c *fiber.Ctx) error {
 			TO_CHAR((clicked_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD HH24:MI:SS') as clicked_at,
 			COALESCE(ip_address, '') as ip_address,
 			COALESCE(location, '') as location,
-			COALESCE(device_type, '未知') as device_type
+			COALESCE(device_type, '未知') as device_type,
+			COALESCE(location_isp, '') as location_isp,
+			COALESCE(location_hostname, '') as location_hostname,
+			COALESCE(location_country, '') as location_country,
+			COALESCE(location_region, '') as location_region,
+			COALESCE(location_city, '') as location_city,
+			COALESCE(location_zip, '') as location_zip
 		FROM clicks
 		WHERE url_id = $1
 		ORDER BY clicked_at DESC
@@ -1226,7 +1297,9 @@ func GetClickList(c *fiber.Ctx) error {
 	var clicks []models.ClickDetail
 	for rows.Next() {
 		var click models.ClickDetail
-		err := rows.Scan(&click.ClickedAt, &click.IPAddress, &click.Location, &click.DeviceType)
+		err := rows.Scan(&click.ClickedAt, &click.IPAddress, &click.Location, &click.DeviceType,
+			&click.LocationISP, &click.LocationHost, &click.LocationCountry, 
+			&click.LocationRegion, &click.LocationCity, &click.LocationZip)
 		if err != nil {
 			log.Printf("Error scanning click detail: %v", err)
 			continue

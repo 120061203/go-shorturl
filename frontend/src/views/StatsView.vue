@@ -99,6 +99,7 @@
                   <th class="pb-4 text-gray-300 font-semibold">IP地址</th>
                   <th class="pb-4 text-gray-300 font-semibold">地點</th>
                   <th class="pb-4 text-gray-300 font-semibold">裝置</th>
+                  <th class="pb-4 text-gray-300 font-semibold">詳細資訊</th>
                 </tr>
               </thead>
               <tbody>
@@ -111,6 +112,28 @@
                   <td class="py-4 text-gray-300 font-mono text-sm">{{ click.ip_address || '未知' }}</td>
                   <td class="py-4 text-gray-300">{{ click.location || '未知' }}</td>
                   <td class="py-4 text-gray-300">{{ click.device_type || '未知' }}</td>
+                  <td class="py-4 text-gray-300 text-xs">
+                    <div class="space-y-1">
+                      <div v-if="click.location_isp">
+                        <span class="text-gray-400">ISP:</span> {{ click.location_isp }}
+                      </div>
+                      <div v-if="click.location_host">
+                        <span class="text-gray-400">主機:</span> {{ click.location_host }}
+                      </div>
+                      <div v-if="click.location_country">
+                        <span class="text-gray-400">國家:</span> {{ click.location_country }}
+                      </div>
+                      <div v-if="click.location_region">
+                        <span class="text-gray-400">地區:</span> {{ click.location_region }}
+                      </div>
+                      <div v-if="click.location_city">
+                        <span class="text-gray-400">城市:</span> {{ click.location_city }}
+                      </div>
+                      <div v-if="click.location_zip">
+                        <span class="text-gray-400">郵遞區號:</span> {{ click.location_zip }}
+                      </div>
+                    </div>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -381,6 +404,12 @@ interface ClickDetail {
   ip_address: string
   location: string
   device_type: string
+  location_isp?: string
+  location_host?: string
+  location_country?: string
+  location_region?: string
+  location_city?: string
+  location_zip?: string
 }
 
 interface ClickList {
