@@ -1,13 +1,13 @@
 # 使用包含 Go 的基础镜像
 FROM golang:1.21-alpine AS builder
 
-# 安装 Node.js 20.19+ 和 npm（使用 NodeSource 或直接安装）
-RUN apk add --no-cache curl && \
-    curl -fsSL https://unofficial-builds.nodejs.org/download/release/v20.19.0/node-v20.19.0-linux-x64-musl.tar.xz | tar -xJ -C /usr/local --strip-components=1 && \
-    apk del curl || \
-    (apk add --no-cache nodejs npm && \
-     npm install -g n@latest && \
-     n 20.19.0)
+# 安装 Node.js 20.19+ 和 npm
+# 先安装基础 Node.js，然后使用 n 工具升级到 20.19.0
+RUN apk add --no-cache nodejs npm curl bash && \
+    npm install -g n@latest && \
+    n 20.19.0 && \
+    node --version && \
+    npm --version
 
 # 设置工作目录
 WORKDIR /app
